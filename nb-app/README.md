@@ -358,4 +358,3 @@ AGPL-3.0
 ## 🙏 致谢
 
 - 参考项目：faithleysath/UndyDraw
-- API 赞助：[Kuai API](https://api.kuai.host/register?aff=z2C8)

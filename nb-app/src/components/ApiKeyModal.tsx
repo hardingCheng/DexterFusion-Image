@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { Key, ExternalLink, ChevronDown, ChevronRight, Settings2, X } from 'lucide-react';
+import { DEFAULT_IMAGE_MODEL } from '../config/models';
 
 interface ApiKeyModalProps {
   onClose?: () => void;
@@ -11,7 +12,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
   const [inputKey, setInputKey] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [endpoint, setEndpoint] = useState(settings.customEndpoint || '');
-  const [model, setModel] = useState(settings.modelName || 'gemini-3-pro-image-preview');
+  const [model, setModel] = useState(settings.modelName || DEFAULT_IMAGE_MODEL);
 
   // Sync local state with store settings (e.g. when updated via URL params)
   useEffect(() => {
@@ -64,12 +65,12 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
         <p className="mb-8 text-center text-gray-500 dark:text-gray-400">
           获取API Key：
           <a 
-            href="https://api.kuai.host/register?aff=z2C8" 
+            href="https://api.aigod.one/register?aff=z2C8" 
             target="_blank" 
             rel="noopener noreferrer"
             className="flex items-center text-m text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 transition"
           >
-            注册登录酷爱API后创建分组为【限时特价】的api密钥即可。
+            使用兼容的 API 服务商创建密钥后填入即可。
             <ExternalLink className="ml-1 h-3 w-3" />
           </a>
         </p>
@@ -116,7 +117,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
                       value={endpoint}
                       onChange={(e) => setEndpoint(e.currentTarget.value)}
                       className="w-full rounded-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:border-amber-500 focus:outline-none"
-                      placeholder="https://api.kuai.host"
+                      placeholder="https://api.aigod.one"
                     />
                   </div>
                   <div>
@@ -126,7 +127,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
                       value={model}
                       onChange={(e) => setModel(e.currentTarget.value)}
                       className="w-full rounded-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:border-amber-500 focus:outline-none"
-                      placeholder="gemini-3-pro-image-preview"
+                      placeholder={DEFAULT_IMAGE_MODEL}
                     />
                   </div>
 
@@ -189,10 +190,11 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
           </button>
         </form>
 
+        {/*
         <div className="mt-6 flex justify-center">
-          <a 
-            href="https://cnb.cool/fuliai/comfyui/-/issues/11" 
-            target="_blank" 
+          <a
+            href="https://cnb.cool/fuliai/comfyui/-/issues/11"
+            target="_blank"
             rel="noopener noreferrer"
             className="flex items-center text-sm text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 transition"
           >
@@ -200,6 +202,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
             <ExternalLink className="ml-1 h-3 w-3" />
           </a>
         </div>
+        */}
       </div>
     </div>
   );

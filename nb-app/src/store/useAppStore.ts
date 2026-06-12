@@ -4,6 +4,18 @@ import { get as getVal, set as setVal, del as delVal } from 'idb-keyval';
 import { fetchBalance, BalanceInfo } from '../services/balanceService';
 import { AppSettings, ChatMessage, Part, ImageHistoryItem } from '../types';
 import { createThumbnail } from '../utils/imageUtils';
+import { DEFAULT_IMAGE_MODEL } from '../config/models';
+
+const OLD_API_ENDPOINT = 'https://api.kuai.host';
+const DEFAULT_API_ENDPOINT = 'https://api.aigod.one';
+
+const normalizeEndpoint = (endpoint?: string): string | undefined =>
+  endpoint === OLD_API_ENDPOINT ? DEFAULT_API_ENDPOINT : endpoint;
+
+const normalizeSettings = (settings: AppSettings): AppSettings => ({
+  ...settings,
+  customEndpoint: normalizeEndpoint(settings.customEndpoint),
+});
 
 // Custom IndexedDB storage
 const storage: StateStorage = {
@@ -58,8 +70,8 @@ export const useAppStore = create<AppState>()(
         useGrounding: false,
         enableThinking: false,
         streamResponse: true,
-        customEndpoint: 'https://api.kuai.host',
-        modelName: 'gemini-3-pro-image-preview',
+        customEndpoint: DEFAULT_API_ENDPOINT,
+        modelName: DEFAULT_IMAGE_MODEL,
         theme: 'system',
       },
       messages: [],
@@ -85,7 +97,7 @@ export const useAppStore = create<AppState>()(
       },
       
       updateSettings: (newSettings) => 
-        set((state) => ({ settings: { ...state.settings, ...newSettings } })),
+        set((state) => ({ settings: normalizeSettings({ ...state.settings, ...newSettings }) })),
 
       addMessage: (message) => 
         set((state) => ({ 
@@ -263,9 +275,24 @@ export const useAppStore = create<AppState>()(
     {
       name: 'gemini-pro-storage',
       storage: createJSONStorage(() => storage),
+      migrate: (persistedState) => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return persistedState;
+        }
+
+        const state = persistedState as Partial<AppState>;
+        if (!state.settings) {
+          return persistedState;
+        }
+
+        return {
+          ...state,
+          settings: normalizeSettings(state.settings),
+        };
+      },
       partialize: (state) => ({
         apiKey: state.apiKey,
-        settings: state.settings,
+        settings: normalizeSettings(state.settings),
         imageHistory: state.imageHistory, // 持久化图片历史记录
       }),
     }

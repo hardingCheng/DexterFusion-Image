@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "gemini-3-pro---frontend-only",
+      "name": "dexterfusion-image",
       "dependencies": {
         "@google/genai": "^1.30.0",
         "idb-keyval": "^6.2.2",

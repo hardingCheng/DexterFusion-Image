@@ -1,4 +1,4 @@
-# [NB Nano Banana - 全能香蕉图创平台](https://nbnb.kuai.host/)
+# [DexterFusion-Image - 全能图像生成平台](https://dexterfusion-image.kuai.host/)
 
 > 🚀 基于 Gemini 3 Pro 的新一代 AI 图像生成工具，纯前端架构，开箱即用
 
@@ -9,15 +9,15 @@
 
 ## 📖 项目简介
 
-**NB Nano Banana** 是一款现代化的纯前端 AI 图像生成平台，专为 Google Gemini 3 Pro 模型打造。无需后端服务器，所有功能在浏览器中直接运行。提供直观的聊天式交互界面、强大的 Pipeline 工作流编排系统，以及丰富的图像管理功能。
+**DexterFusion-Image** 是一款现代化的纯前端 AI 图像生成平台，专为 Google Gemini 3 Pro 模型打造。无需后端服务器，所有功能在浏览器中直接运行。提供直观的聊天式交互界面、强大的 Pipeline 工作流编排系统，以及丰富的图像管理功能。
 
 **核心理念**：让 AI 图像生成变得简单、高效、有趣。
 
 ---
 
-> ### 应用地址：<Icon icon="lucide-banana"/> https://nbnb.kuai.host/
+> ### 应用地址：<Icon icon="lucide-image"/> https://dexterfusion-image.kuai.host/
 
-<Icon icon="lucide-github"/> https://github.com/aigem/nbnb/
+<Icon icon="lucide-github"/> https://github.com/aigem/DexterFusion-Image/
 
 ## [📚 完整使用教程](https://www.kuai.host/7798503m0)
 
@@ -76,7 +76,7 @@ AI 思考时不再无聊：
 
 ## 🎯 核心卖点
 
-### 为什么选择 NB Nano Banana？
+### 为什么选择 DexterFusion-Image？
 
 | 💎 卖点 | 🔍 说明 |
 |---------|---------|
@@ -108,8 +108,8 @@ AI 思考时不再无聊：
 **步骤**：
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/aigem/nbnb.git
-cd nbnb
+git clone https://github.com/aigem/DexterFusion-Image.git
+cd DexterFusion-Image
 
 # 2. 安装依赖
 bun install
@@ -122,7 +122,7 @@ bun dev
 
 ### 方式二：Vercel 部署（推荐生产环境）
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/aigem/nbnb)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/aigem/DexterFusion-Image)
 
 1. 点击上方按钮，一键导入项目到 Vercel
 2. 等待自动构建完成（约 1-2 分钟）
@@ -142,10 +142,10 @@ bun build
 
 ```bash
 # 1. 构建镜像
-docker build -t nb-nano-banana .
+docker build -t dexterfusion-image .
 
 # 2. 运行容器
-docker run -p 3000:3000 nb-nano-banana
+docker run -p 3000:3000 dexterfusion-image
 ```
 
 ---
@@ -154,7 +154,7 @@ docker run -p 3000:3000 nb-nano-banana
 
 ### 推荐渠道：Kuai API（国内友好）
 
-NB Nano Banana 默认使用 **Kuai API** 作为 Gemini 模型的接入点，提供更稳定的国内访问体验。
+DexterFusion-Image 默认使用 **Kuai API** 作为 Gemini 模型的接入点，提供更稳定的国内访问体验。
 
 **注册链接**：[https://api.kuai.host/register?aff=z2C8](https://api.kuai.host/register?aff=z2C8)
 
@@ -251,8 +251,8 @@ https://your-domain.com/?apikey=YOUR_KEY&endpoint=https://api.kuai.host&model=ge
 
 ## 📞 支持与反馈
 
-- **问题报告**：[GitHub Issues](https://github.com/aigem/nbnb/issues)
-- **功能建议**：[GitHub Discussions](https://github.com/aigem/nbnb/discussions)
+- **问题报告**：[GitHub Issues](https://github.com/aigem/DexterFusion-Image/issues)
+- **功能建议**：[GitHub Discussions](https://github.com/aigem/DexterFusion-Image/discussions)
 - **技术文档**：查看仓库中的 [CLAUDE.md](./CLAUDE.md)
 
 ---
@@ -271,7 +271,6 @@ https://your-domain.com/?apikey=YOUR_KEY&endpoint=https://api.kuai.host&model=ge
 ## 🙏 致谢
 
 - 参考项目：[faithleysath/UndyDraw](https://github.com/faithleysath/UndyDraw)
-- API 服务赞助：[Kuai API](https://api.kuai.host/register?aff=z2C8)
 - 技术栈：React、Vite、Tailwind CSS、Zustand、Google GenAI SDK
 
 ---

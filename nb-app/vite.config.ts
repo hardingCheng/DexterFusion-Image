@@ -29,9 +29,9 @@ export default defineConfig(({ mode }) => {
             enabled: true
           },
           manifest: {
-            name: 'nbnb',
-            short_name: 'nbnb',
-            description: 'NB Nano Banana在线客户端',
+            name: 'DexterFusion-Image',
+            short_name: 'DexterFusion',
+            description: 'DexterFusion-Image在线客户端',
             theme_color: '#ffffff',
             background_color: '#ffffff',
             display: 'standalone',

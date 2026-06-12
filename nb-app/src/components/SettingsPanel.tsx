@@ -1,32 +1,22 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
-import { X, LogOut, Trash2, Share2, Bookmark, DollarSign, RefreshCw, Download } from 'lucide-react';
+import { X, LogOut, Trash2, DollarSign, RefreshCw } from 'lucide-react';
 import { formatBalance } from '../services/balanceService';
+import {
+  DEFAULT_IMAGE_MODEL,
+  getAspectRatioOptions,
+  IMAGE_MODEL_GROUPS,
+  type ResolutionOption,
+  supportsAspectRatio,
+  supportsImageResolution,
+} from '../config/models';
 
 export const SettingsPanel: React.FC = () => {
-  const { apiKey, settings, updateSettings, toggleSettings, removeApiKey, clearHistory, isSettingsOpen, fetchBalance, balance, installPrompt, setInstallPrompt } = useAppStore();
+  const { apiKey, settings, updateSettings, toggleSettings, removeApiKey, clearHistory, isSettingsOpen, fetchBalance, balance } = useAppStore();
   const { addToast, showDialog } = useUiStore();
   const [loadingBalance, setLoadingBalance] = useState(false);
-  
-  const handleInstallClick = async () => {
-    if (!installPrompt) return;
-    
-    // Show the install prompt
-    installPrompt.prompt();
-    
-    // Wait for the user to respond to the prompt
-    const { outcome } = await installPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-      console.log('User accepted the install prompt');
-    } else {
-      console.log('User dismissed the install prompt');
-    }
-    
-    // We've used the prompt, and can't use it again, throw it away
-    setInstallPrompt(null);
-  };
+  const aspectRatioOptions = getAspectRatioOptions(settings.modelName, settings.resolution);
   
   // 首次加载或打开面板时如果没有余额数据，尝试获取
   useEffect(() => {
@@ -51,36 +41,6 @@ export const SettingsPanel: React.FC = () => {
     } finally {
       setLoadingBalance(false);
     }
-  };
-
-  const getBookmarkUrl = () => {
-    if (!apiKey) return window.location.href;
-    const params = new URLSearchParams();
-    params.set('apikey', apiKey);
-    if (settings.customEndpoint) params.set('endpoint', settings.customEndpoint);
-    if (settings.modelName) params.set('model', settings.modelName);
-    return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
-  };
-
-  const handleCreateBookmark = () => {
-    if (!apiKey) return;
-    const url = getBookmarkUrl();
-    
-    // Update address bar without reloading
-    window.history.pushState({ path: url }, '', url);
-
-    // Copy to clipboard
-    navigator.clipboard.writeText(url).then(() => {
-        addToast("URL 已更新并复制！按 Ctrl+D 添加书签。", 'success');
-    }).catch(err => {
-        console.error("复制失败", err);
-        showDialog({
-            type: 'alert',
-            title: '复制失败',
-            message: `请手动复制此 URL：\n${url}`,
-            onConfirm: () => {}
-        });
-    });
   };
 
   return (
@@ -149,8 +109,7 @@ export const SettingsPanel: React.FC = () => {
           <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">图像分辨率</label>
           <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
             {(['1K', '2K', '4K'] as const).map((res) => {
-              // 只有 gemini-3-pro-image-preview 支持分辨率选择
-              const isResolutionSupported = (settings.modelName || 'gemini-3-pro-image-preview') === 'gemini-3-pro-image-preview';
+              const isResolutionSupported = supportsImageResolution(settings.modelName);
               const isDisabled = !isResolutionSupported;
 
               return (
@@ -158,10 +117,14 @@ export const SettingsPanel: React.FC = () => {
                   key={res}
                   onClick={() => {
                     if (isDisabled) return;
+                    const resolutionUpdate = {
+                      resolution: res,
+                      ...(supportsAspectRatio(settings.modelName, settings.aspectRatio, res as ResolutionOption) ? {} : { aspectRatio: 'Auto' }),
+                    };
                     if (res === '2K' || res === '4K') {
-                      updateSettings({ resolution: res, streamResponse: false });
+                      updateSettings({ ...resolutionUpdate, streamResponse: false });
                     } else {
-                      updateSettings({ resolution: res });
+                      updateSettings(resolutionUpdate);
                     }
                   }}
                   disabled={isDisabled}
@@ -176,9 +139,9 @@ export const SettingsPanel: React.FC = () => {
               );
             })}
           </div>
-          {(settings.modelName || 'gemini-3-pro-image-preview') !== 'gemini-3-pro-image-preview' && (
+          {!supportsImageResolution(settings.modelName) && (
             <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 mt-1.5 sm:mt-2">
-              ⚠️ 当前模型不支持分辨率选择，仅 Gemini 3 Pro 支持此功能
+              ⚠️ 当前模型不支持分辨率选择，请切换到支持 1K/2K/4K 的模型
             </p>
           )}
         </section>
@@ -186,27 +149,36 @@ export const SettingsPanel: React.FC = () => {
         {/* Model Selection */}
         <section>
           <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">模型选择</label>
-          <div className="space-y-2">
-            {([
-              { name: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro' },
-              { name: 'gemini-2.5-flash-image-preview', label: 'Gemini 2.5 Flash (Preview)' },
-              { name: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash' }
-            ] as const).map((model) => {
-              const isActive = (settings.modelName || 'gemini-3-pro-image-preview') === model.name;
-              return (
-                <button
-                  key={model.name}
-                  onClick={() => updateSettings({ modelName: model.name })}
-                  className={`w-full rounded-lg border px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium text-left transition ${
-                    isActive
-                      ? 'border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                      : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700'
-                  }`}
-                >
-                  {model.label}
-                </button>
-              );
-            })}
+          <div className="space-y-3">
+            {IMAGE_MODEL_GROUPS.map((group) => (
+              <div key={group.label} className="space-y-1.5">
+                <div className="px-1 text-[10px] sm:text-xs font-medium text-gray-400 dark:text-gray-500">
+                  {group.label}
+                </div>
+                {group.models.map((model) => {
+                  const isActive = (settings.modelName || DEFAULT_IMAGE_MODEL) === model.value;
+                  return (
+                    <button
+                      key={model.value}
+                      onClick={() => updateSettings({
+                        modelName: model.value,
+                        ...(supportsAspectRatio(model.value, settings.aspectRatio, settings.resolution) ? {} : { aspectRatio: 'Auto' }),
+                      })}
+                      className={`w-full rounded-lg border px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium text-left transition ${
+                        isActive
+                          ? 'border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                          : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700'
+                      }`}
+                    >
+                      <span>{model.label}</span>
+                      {supportsImageResolution(model.value) && (
+                        <span className="ml-2 text-[10px] text-gray-400 dark:text-gray-500">1K/2K/4K</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         </section>
 
@@ -214,7 +186,7 @@ export const SettingsPanel: React.FC = () => {
         <section>
           <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">长宽比</label>
           <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-            {(['Auto', '1:1', '3:4', '4:3', '9:16', '16:9', '21:9'] as const).map((ratio) => {
+            {aspectRatioOptions.map((ratio) => {
               const isActive = settings.aspectRatio === ratio;
               const ratioPreviewStyles: Record<string, string> = {
                 'Auto': 'w-6 h-6 border-dashed',
@@ -223,7 +195,10 @@ export const SettingsPanel: React.FC = () => {
                 '4:3': 'w-7 h-5',
                 '9:16': 'w-4 h-7',
                 '16:9': 'w-7 h-4',
+                '2:3': 'w-5 h-7',
+                '3:2': 'w-7 h-5',
                 '21:9': 'w-8 h-3',
+                '4:5': 'w-5 h-6',
               };
 
               return (
@@ -248,7 +223,8 @@ export const SettingsPanel: React.FC = () => {
           </div>
         </section>
 
-        {/* Streaming */}
+        {/*
+        Streaming
         <section>
           <label className="flex items-center justify-between cursor-pointer group">
             <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300">流式响应</span>
@@ -279,8 +255,10 @@ export const SettingsPanel: React.FC = () => {
              逐个 token 流式传输模型的响应。对于一次性响应请禁用。
           </p>
         </section>
+        */}
         
-        {/* App Installation */}
+        {/*
+        App Installation
         {installPrompt && (
           <section className="pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-800">
             <button
@@ -288,15 +266,17 @@ export const SettingsPanel: React.FC = () => {
               className="w-full flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg border border-purple-200 dark:border-purple-500/30 bg-purple-50 dark:bg-purple-500/10 p-2.5 sm:p-3 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-500/20 transition"
             >
               <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span className="text-xs sm:text-sm">安装 nbnb 应用</span>
+              <span className="text-xs sm:text-sm">安装 DexterFusion-Image 应用</span>
             </button>
             <p className="mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-center text-gray-400 dark:text-gray-500">
               安装到您的设备以获得原生应用体验。
             </p>
           </section>
         )}
+        */}
 
-        {/* Share Configuration */}
+        {/*
+        Share Configuration
         <section className="pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-800">
            <div className="flex gap-1.5 sm:gap-2">
              <button
@@ -309,7 +289,7 @@ export const SettingsPanel: React.FC = () => {
 
              <a
                href={getBookmarkUrl()}
-               onClick={(e) => e.preventDefault()} // Prevent navigation, strictly for dragging
+               onClick={(e) => e.preventDefault()}
                className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 p-2.5 sm:p-3 text-gray-500 dark:text-gray-400 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-500 dark:hover:text-blue-400 cursor-grab active:cursor-grabbing transition"
                title="将此按钮拖动到书签栏"
              >
@@ -318,6 +298,7 @@ export const SettingsPanel: React.FC = () => {
              </a>
            </div>
         </section>
+        */}
 
         {/* Data Management */}
         <section className="pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-800">
@@ -365,8 +346,8 @@ export const SettingsPanel: React.FC = () => {
 
         {/* Info */}
         <div className="mt-1 pb-2 sm:pb-4 text-center text-[9px] sm:text-[10px] text-gray-400 dark:text-gray-600 space-y-0.5 sm:space-y-1">
-           <p>模型: {settings.modelName || 'gemini-3-pro-image-preview'}</p>
-           <p className="truncate px-4">接口地址: {settings.customEndpoint || 'https://api.kuai.host'}</p>
+           <p>模型: {settings.modelName || DEFAULT_IMAGE_MODEL}</p>
+           <p className="truncate px-4">接口地址: {settings.customEndpoint || 'https://api.aigod.one'}</p>
         </div>
       </div>
     </div>

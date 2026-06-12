@@ -1,5 +1,6 @@
 import type { Content, Part as SDKPart } from "@google/genai";
 import { AppSettings, Part } from '../types';
+import { DEFAULT_IMAGE_MODEL, getGptImage2Size, isGptImage2Model } from '../config/models';
 
 // Helper to construct user content
 const constructUserContent = (prompt: string, images: { base64Data: string; mimeType: string }[]): Content => {
@@ -21,6 +22,19 @@ const constructUserContent = (prompt: string, images: { base64Data: string; mime
   return {
     role: "user",
     parts: userParts,
+  };
+};
+
+const buildImageConfig = (settings: AppSettings) => {
+  if (isGptImage2Model(settings.modelName)) {
+    return {
+      size: getGptImage2Size(settings.resolution, settings.aspectRatio),
+    };
+  }
+
+  return {
+    imageSize: settings.resolution,
+    ...(settings.aspectRatio !== 'Auto' ? { aspectRatio: settings.aspectRatio } : {}),
   };
 };
 
@@ -122,7 +136,7 @@ export const streamGeminiResponse = async function* (
 ) {
   const { GoogleGenAI } = await import("@google/genai");
   const ai = new GoogleGenAI(
-    { apiKey, httpOptions: { baseUrl: settings.customEndpoint || 'https://api.kuai.host' } }
+    { apiKey, httpOptions: { baseUrl: settings.customEndpoint || 'https://api.aigod.one' } }
   );
 
   // Filter out thought parts from history to avoid sending thought chains back to the model
@@ -141,13 +155,10 @@ export const streamGeminiResponse = async function* (
 
   try {
     const responseStream = await ai.models.generateContentStream({
-      model: settings.modelName || "gemini-3-pro-image-preview",
+      model: settings.modelName || DEFAULT_IMAGE_MODEL,
       contents: contentsPayload,
       config: {
-        imageConfig: {
-          imageSize: settings.resolution,
-          ...(settings.aspectRatio !== 'Auto' ? { aspectRatio: settings.aspectRatio } : {}),
-        },
+        imageConfig: buildImageConfig(settings),
         tools: settings.useGrounding ? [{ googleSearch: {} }] : [],
         responseModalities: ["TEXT", "IMAGE"],
         ...(settings.enableThinking ? {
@@ -236,7 +247,7 @@ export const generateContent = async (
 ) => {
   const { GoogleGenAI } = await import("@google/genai");
   const ai = new GoogleGenAI(
-    { apiKey, httpOptions: { baseUrl: settings.customEndpoint || 'https://api.kuai.host' } }
+    { apiKey, httpOptions: { baseUrl: settings.customEndpoint || 'https://api.aigod.one' } }
   );
 
   // Filter out thought parts from history
@@ -260,13 +271,10 @@ export const generateContent = async (
     }
 
     const response = await ai.models.generateContent({
-      model: settings.modelName || "gemini-3-pro-image-preview",
+      model: settings.modelName || DEFAULT_IMAGE_MODEL,
       contents: contentsPayload,
       config: {
-        imageConfig: {
-          imageSize: settings.resolution,
-          ...(settings.aspectRatio !== 'Auto' ? { aspectRatio: settings.aspectRatio } : {}),
-        },
+        imageConfig: buildImageConfig(settings),
         tools: settings.useGrounding ? [{ googleSearch: {} }] : [],
         responseModalities: ["TEXT", "IMAGE"],
         ...(settings.enableThinking ? {

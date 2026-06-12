@@ -2,19 +2,13 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Plus, Trash2, ImagePlus, ChevronUp, ChevronDown, Layers, GitBranch, Camera, Grid3x3 } from 'lucide-react';
 import { Attachment, PipelineTemplate, PipelineStep } from '../types';
 import { loadPipelineTemplates, filterTemplatesByMode } from '../services/pipelineTemplateService';
+import { IMAGE_MODEL_GROUPS } from '../config/models';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onExecute: (mode: 'serial' | 'parallel' | 'combination', steps: PipelineStep[], attachments: Attachment[]) => void;
 }
-
-// 可用模型列表
-const AVAILABLE_MODELS = [
-  { value: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro' },
-  { value: 'gemini-2.5-flash-image-preview', label: 'Gemini 2.5 Flash (Preview)' },
-  { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash' }
-] as const;
 
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -454,10 +448,14 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
                         className="flex-1 px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
                       >
                         <option value="">默认 (继承全局设置)</option>
-                        {AVAILABLE_MODELS.map((model) => (
-                          <option key={model.value} value={model.value}>
-                            {model.label}
-                          </option>
+                        {IMAGE_MODEL_GROUPS.map((group) => (
+                          <optgroup key={group.label} label={group.label}>
+                            {group.models.map((model) => (
+                              <option key={model.value} value={model.value}>
+                                {model.label}
+                              </option>
+                            ))}
+                          </optgroup>
                         ))}
                       </select>
                     </div>
