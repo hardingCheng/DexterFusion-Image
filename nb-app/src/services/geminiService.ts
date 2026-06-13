@@ -1,6 +1,7 @@
 import type { Content, Part as SDKPart } from "@google/genai";
 import { AppSettings, Part } from '../types';
-import { DEFAULT_IMAGE_MODEL, getGptImage2Size, isGptImage2Model } from '../config/models';
+import { DEFAULT_IMAGE_MODEL, isGptImage2Model } from '../config/models';
+import { generateOpenAIImageContent } from './openaiImageService';
 
 type RequestSettings = AppSettings & {
   displayModelName?: string;
@@ -30,12 +31,6 @@ const constructUserContent = (prompt: string, images: { base64Data: string; mime
 };
 
 const buildImageConfig = (settings: RequestSettings) => {
-  if (isGptImage2Model(settings.displayModelName || settings.modelName)) {
-    return {
-      size: getGptImage2Size(settings.resolution, settings.aspectRatio),
-    };
-  }
-
   return {
     imageSize: settings.resolution,
     ...(settings.aspectRatio !== 'Auto' ? { aspectRatio: settings.aspectRatio } : {}),
@@ -138,6 +133,11 @@ export const streamGeminiResponse = async function* (
   settings: RequestSettings,
   signal?: AbortSignal
 ) {
+  if (isGptImage2Model(settings.displayModelName || settings.modelName)) {
+    yield await generateOpenAIImageContent(apiKey, prompt, images, settings, signal);
+    return;
+  }
+
   const { GoogleGenAI } = await import("@google/genai");
   const ai = new GoogleGenAI(
     { apiKey, httpOptions: { baseUrl: settings.customEndpoint || 'https://api.aigod.one' } }
@@ -249,6 +249,10 @@ export const generateContent = async (
   settings: RequestSettings,
   signal?: AbortSignal
 ) => {
+  if (isGptImage2Model(settings.displayModelName || settings.modelName)) {
+    return generateOpenAIImageContent(apiKey, prompt, images, settings, signal);
+  }
+
   const { GoogleGenAI } = await import("@google/genai");
   const ai = new GoogleGenAI(
     { apiKey, httpOptions: { baseUrl: settings.customEndpoint || 'https://api.aigod.one' } }
