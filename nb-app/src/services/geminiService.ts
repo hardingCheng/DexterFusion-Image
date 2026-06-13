@@ -2,6 +2,10 @@ import type { Content, Part as SDKPart } from "@google/genai";
 import { AppSettings, Part } from '../types';
 import { DEFAULT_IMAGE_MODEL, getGptImage2Size, isGptImage2Model } from '../config/models';
 
+type RequestSettings = AppSettings & {
+  displayModelName?: string;
+};
+
 // Helper to construct user content
 const constructUserContent = (prompt: string, images: { base64Data: string; mimeType: string }[]): Content => {
   const userParts: SDKPart[] = [];
@@ -25,8 +29,8 @@ const constructUserContent = (prompt: string, images: { base64Data: string; mime
   };
 };
 
-const buildImageConfig = (settings: AppSettings) => {
-  if (isGptImage2Model(settings.modelName)) {
+const buildImageConfig = (settings: RequestSettings) => {
+  if (isGptImage2Model(settings.displayModelName || settings.modelName)) {
     return {
       size: getGptImage2Size(settings.resolution, settings.aspectRatio),
     };
@@ -131,7 +135,7 @@ export const streamGeminiResponse = async function* (
   history: Content[],
   prompt: string,
   images: { base64Data: string; mimeType: string }[],
-  settings: AppSettings,
+  settings: RequestSettings,
   signal?: AbortSignal
 ) {
   const { GoogleGenAI } = await import("@google/genai");
@@ -242,7 +246,7 @@ export const generateContent = async (
   history: Content[],
   prompt: string,
   images: { base64Data: string; mimeType: string }[],
-  settings: AppSettings,
+  settings: RequestSettings,
   signal?: AbortSignal
 ) => {
   const { GoogleGenAI } = await import("@google/genai");

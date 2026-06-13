@@ -3,6 +3,7 @@ import { X, Plus, Trash2, ImagePlus, ChevronUp, ChevronDown, Layers, GitBranch, 
 import { Attachment, PipelineTemplate, PipelineStep } from '../types';
 import { loadPipelineTemplates, filterTemplatesByMode } from '../services/pipelineTemplateService';
 import { IMAGE_MODEL_GROUPS } from '../config/models';
+import { MAX_REFERENCE_IMAGES, MAX_REFERENCE_IMAGE_BYTES, MAX_REFERENCE_IMAGE_SIZE_LABEL } from '../config/upload';
 
 interface Props {
   isOpen: boolean;
@@ -27,6 +28,8 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
     status: 'pending'
   }]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [draggedAttachmentIndex, setDraggedAttachmentIndex] = useState<number | null>(null);
+  const [dragOverAttachmentIndex, setDragOverAttachmentIndex] = useState<number | null>(null);
   const [templates, setTemplates] = useState<PipelineTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -87,30 +90,79 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
 
   const processFiles = useCallback(async (files: File[]) => {
     const newAttachments: Attachment[] = [];
+    const availableSlots = Math.max(0, MAX_REFERENCE_IMAGES - attachments.length);
+    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
 
-    for (const file of files) {
-      if (file.type.startsWith('image/')) {
-        try {
-          const base64 = await fileToBase64(file);
-          const base64Data = base64.split(',')[1];
+    if (imageFiles.length > availableSlots) {
+      alert(`最多上传 ${MAX_REFERENCE_IMAGES} 张参考图`);
+    }
 
-          newAttachments.push({
-            file,
-            preview: base64,
-            base64Data,
-            mimeType: file.type
-          });
-        } catch (err) {
-          console.error('Error reading file', err);
-        }
+    for (const file of imageFiles.slice(0, availableSlots)) {
+      if (file.size > MAX_REFERENCE_IMAGE_BYTES) {
+        alert(`${file.name} 超过 ${MAX_REFERENCE_IMAGE_SIZE_LABEL}，已跳过`);
+        continue;
+      }
+
+      try {
+        const base64 = await fileToBase64(file);
+        const base64Data = base64.split(',')[1];
+
+        newAttachments.push({
+          file,
+          preview: base64,
+          base64Data,
+          mimeType: file.type
+        });
+      } catch (err) {
+        console.error('Error reading file', err);
       }
     }
 
-    setAttachments(prev => [...prev, ...newAttachments].slice(0, 14));
-  }, []);
+    setAttachments(prev => [...prev, ...newAttachments].slice(0, MAX_REFERENCE_IMAGES));
+  }, [attachments.length]);
 
   const removeAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const moveAttachment = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setAttachments((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const handleAttachmentDragStart = (index: number, e: React.DragEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+    setDraggedAttachmentIndex(index);
+  };
+
+  const handleAttachmentDragOver = (index: number, e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverAttachmentIndex(index);
+  };
+
+  const handleAttachmentDrop = (index: number, e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const fromIndex = draggedAttachmentIndex ?? Number(e.dataTransfer.getData('text/plain'));
+    if (Number.isInteger(fromIndex)) {
+      moveAttachment(fromIndex, index);
+    }
+    setDraggedAttachmentIndex(null);
+    setDragOverAttachmentIndex(null);
+  };
+
+  const handleAttachmentDragEnd = () => {
+    setDraggedAttachmentIndex(null);
+    setDragOverAttachmentIndex(null);
   };
 
   const handleApplyTemplate = (template: PipelineTemplate) => {
@@ -325,7 +377,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
           {/* 初始图片 */}
           <section>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              初始参考图 {mode === 'combination' ? '(必需，最多14张)' : '(可选，最多14张)'}
+              初始参考图 {mode === 'combination' ? `(必需，最多${MAX_REFERENCE_IMAGES}张，每张不超过 ${MAX_REFERENCE_IMAGE_SIZE_LABEL})` : `(可选，最多${MAX_REFERENCE_IMAGES}张，每张不超过 ${MAX_REFERENCE_IMAGE_SIZE_LABEL})`}
               {mode === 'combination' && (
                 <span className="block text-xs font-normal text-amber-600 dark:text-amber-400 mt-1">
                   💡 每张图片将与每条提示词组合生成，总共 {attachments.length} × {steps.length} = {attachments.length * steps.length} 张
@@ -341,14 +393,32 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
             {attachments.length > 0 && (
               <div className="flex gap-2 overflow-x-auto pb-2 mb-3">
                 {attachments.map((att, i) => (
-                  <div key={i} className="relative h-16 w-16 shrink-0 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 group">
+                  <div
+                    key={`${att.file.name}-${i}`}
+                    draggable
+                    onDragStart={(e) => handleAttachmentDragStart(i, e)}
+                    onDragOver={(e) => handleAttachmentDragOver(i, e)}
+                    onDrop={(e) => handleAttachmentDrop(i, e)}
+                    onDragEnd={handleAttachmentDragEnd}
+                    title="拖拽调整顺序"
+                    className={`relative h-16 w-16 shrink-0 cursor-grab rounded-lg border bg-gray-50 dark:bg-gray-800 group active:cursor-grabbing transition ${
+                      dragOverAttachmentIndex === i
+                        ? 'border-amber-500 ring-2 ring-amber-400/60'
+                        : 'border-gray-200 dark:border-gray-700'
+                    } ${draggedAttachmentIndex === i ? 'opacity-50' : ''}`}
+                  >
                     <img
                       src={att.preview}
                       alt="preview"
+                      draggable={false}
                       className="h-full w-full object-cover rounded-lg opacity-80 group-hover:opacity-100 transition"
                     />
                     <button
-                      onClick={() => removeAttachment(i)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeAttachment(i);
+                      }}
+                      onDragStart={(e) => e.preventDefault()}
                       className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600"
                     >
                       <X className="h-3 w-3" />
@@ -380,7 +450,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
             <div className="flex gap-2">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                disabled={attachments.length >= 14}
+                disabled={attachments.length >= MAX_REFERENCE_IMAGES}
                 className="flex-1 px-4 py-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-amber-500 dark:hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ImagePlus className="h-5 w-5 text-gray-400 mx-auto mb-1" />
@@ -392,7 +462,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
               {/* 拍照按钮（仅移动端显示） */}
               <button
                 onClick={() => cameraInputRef.current?.click()}
-                disabled={attachments.length >= 14}
+                disabled={attachments.length >= MAX_REFERENCE_IMAGES}
                 className="sm:hidden px-4 py-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-amber-500 dark:hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Camera className="h-5 w-5 text-gray-400 mx-auto mb-1" />

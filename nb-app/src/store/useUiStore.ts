@@ -85,7 +85,7 @@ export const useUiStore = create<UiState>((set) => ({
 
   setBatchMode: (mode) => set({ batchMode: mode }),
 
-  setBatchCount: (count) => set({ batchCount: Math.max(1, Math.min(4, count)) }),
+  setBatchCount: (count) => set({ batchCount: Math.max(1, Math.min(9, count)) }),
 
   setShowApiKeyModal: (show) => set({ showApiKeyModal: show }),
 

@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, ImagePlus, X, Square, Gamepad2, Sparkles, Layers, Workflow, Camera } from 'lucide-react';
+import { Send, ImagePlus, X, Square, Gamepad2, Sparkles, Layers, Camera } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
 import { Attachment } from '../types';
 import { PromptQuickPicker } from './PromptQuickPicker';
+import { MAX_REFERENCE_IMAGES, MAX_REFERENCE_IMAGE_BYTES, MAX_REFERENCE_IMAGE_SIZE_LABEL } from '../config/upload';
 
 interface Props {
   onSend: (text: string, attachments: Attachment[]) => void;
@@ -16,9 +17,11 @@ interface Props {
 
 export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArcadeOpen, onOpenPipeline, disabled }) => {
   const { inputText, setInputText } = useAppStore();
-  const { togglePromptLibrary, isPromptLibraryOpen, batchMode, batchCount, setBatchMode, setBatchCount, pendingReferenceImage, setPendingReferenceImage } = useUiStore();
+  const { togglePromptLibrary, isPromptLibraryOpen, batchMode, batchCount, setBatchMode, setBatchCount, pendingReferenceImage, setPendingReferenceImage, addToast } = useUiStore();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [draggedAttachmentIndex, setDraggedAttachmentIndex] = useState<number | null>(null);
+  const [dragOverAttachmentIndex, setDragOverAttachmentIndex] = useState<number | null>(null);
   const [isQuickPickerOpen, setIsQuickPickerOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -27,25 +30,37 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
 
   // 监听待添加的参考图片
   useEffect(() => {
-    if (pendingReferenceImage && attachments.length < 14) {
-      const { base64Data, mimeType, timestamp } = pendingReferenceImage;
+    if (!pendingReferenceImage) return;
 
-      // 创建一个虚拟 File 对象
-      const fileName = `image-${timestamp}.${mimeType.split('/')[1]}`;
-      const blob = base64ToBlob(`data:${mimeType};base64,${base64Data}`);
-      const file = new File([blob], fileName, { type: mimeType });
-
-      const newAttachment: Attachment = {
-        file,
-        preview: `data:${mimeType};base64,${base64Data}`,
-        base64Data,
-        mimeType
-      };
-
-      setAttachments(prev => [...prev, newAttachment].slice(0, 14));
-      setPendingReferenceImage(null); // 清除待添加图片
+    if (attachments.length >= MAX_REFERENCE_IMAGES) {
+      addToast(`最多上传 ${MAX_REFERENCE_IMAGES} 张参考图`, 'error');
+      setPendingReferenceImage(null);
+      return;
     }
-  }, [pendingReferenceImage, attachments.length, setPendingReferenceImage]);
+
+    const { base64Data, mimeType, timestamp } = pendingReferenceImage;
+
+    // 创建一个虚拟 File 对象
+    const fileName = `image-${timestamp}.${mimeType.split('/')[1]}`;
+    const blob = base64ToBlob(`data:${mimeType};base64,${base64Data}`);
+    const file = new File([blob], fileName, { type: mimeType });
+
+    const newAttachment: Attachment = {
+      file,
+      preview: `data:${mimeType};base64,${base64Data}`,
+      base64Data,
+      mimeType
+    };
+
+    if (file.size > MAX_REFERENCE_IMAGE_BYTES) {
+      addToast(`参考图不能超过 ${MAX_REFERENCE_IMAGE_SIZE_LABEL}`, 'error');
+      setPendingReferenceImage(null);
+      return;
+    }
+
+    setAttachments(prev => [...prev, newAttachment].slice(0, MAX_REFERENCE_IMAGES));
+    setPendingReferenceImage(null); // 清除待添加图片
+  }, [pendingReferenceImage, attachments.length, setPendingReferenceImage, addToast]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Check if device is likely mobile/tablet based on screen width
@@ -68,32 +83,41 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
 
   const processFiles = useCallback(async (files: File[]) => {
     const newAttachments: Attachment[] = [];
+    const availableSlots = Math.max(0, MAX_REFERENCE_IMAGES - attachments.length);
+    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
 
-    for (const file of files) {
-      if (file.type.startsWith('image/')) {
-        try {
-           const base64 = await fileToBase64(file);
-           // Strip the data:image/jpeg;base64, part for the API payload
-           const base64Data = base64.split(',')[1];
+    if (imageFiles.length > availableSlots) {
+      addToast(`最多上传 ${MAX_REFERENCE_IMAGES} 张参考图`, 'error');
+    }
 
-           newAttachments.push({
-             file,
-             preview: base64,
-             base64Data,
-             mimeType: file.type
-           });
-        } catch (err) {
-           console.error("Error reading file", err);
-        }
+    for (const file of imageFiles.slice(0, availableSlots)) {
+      if (file.size > MAX_REFERENCE_IMAGE_BYTES) {
+        addToast(`${file.name} 超过 ${MAX_REFERENCE_IMAGE_SIZE_LABEL}，已跳过`, 'error');
+        continue;
+      }
+
+      try {
+         const base64 = await fileToBase64(file);
+         // Strip the data:image/jpeg;base64, part for the API payload
+         const base64Data = base64.split(',')[1];
+
+         newAttachments.push({
+           file,
+           preview: base64,
+           base64Data,
+           mimeType: file.type
+         });
+      } catch (err) {
+         console.error("Error reading file", err);
       }
     }
 
-    setAttachments(prev => [...prev, ...newAttachments].slice(0, 14));
-  }, []);
+    setAttachments(prev => [...prev, ...newAttachments].slice(0, MAX_REFERENCE_IMAGES));
+  }, [addToast, attachments.length]);
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
-      if (disabled || attachments.length >= 14) return;
+      if (disabled || attachments.length >= MAX_REFERENCE_IMAGES) return;
 
       const clipboardData = event.clipboardData;
       if (!clipboardData) return;
@@ -114,6 +138,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
   }, [disabled, processFiles, attachments.length]);
 
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!Array.from(e.dataTransfer.types).includes('Files')) return;
     e.preventDefault();
     e.stopPropagation();
 
@@ -125,6 +150,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
   };
 
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!Array.from(e.dataTransfer.types).includes('Files')) return;
     e.preventDefault();
     e.stopPropagation();
 
@@ -136,18 +162,20 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!Array.from(e.dataTransfer.types).includes('Files')) return;
     e.preventDefault();
     e.stopPropagation();
   };
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    if (!Array.from(e.dataTransfer.types).includes('Files')) return;
     e.preventDefault();
     e.stopPropagation();
 
     setIsDragging(false);
     dragCounter.current = 0;
 
-    if (disabled || attachments.length >= 14) return;
+    if (disabled || attachments.length >= MAX_REFERENCE_IMAGES) return;
 
     const files = Array.from(e.dataTransfer.files);
     await processFiles(files);
@@ -155,6 +183,46 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
 
   const removeAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const moveAttachment = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setAttachments((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const handleAttachmentDragStart = (index: number, e: React.DragEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+    setDraggedAttachmentIndex(index);
+  };
+
+  const handleAttachmentDragOver = (index: number, e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverAttachmentIndex(index);
+  };
+
+  const handleAttachmentDrop = (index: number, e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const fromIndex = draggedAttachmentIndex ?? Number(e.dataTransfer.getData('text/plain'));
+    if (Number.isInteger(fromIndex)) {
+      moveAttachment(fromIndex, index);
+    }
+    setDraggedAttachmentIndex(null);
+    setDragOverAttachmentIndex(null);
+  };
+
+  const handleAttachmentDragEnd = () => {
+    setDraggedAttachmentIndex(null);
+    setDragOverAttachmentIndex(null);
   };
 
   const handleSubmit = () => {
@@ -207,7 +275,8 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
                 批量生成
               </button>
 
-              {/* Pipeline Button */}
+              {/*
+              Pipeline Button
               {onOpenPipeline && (
                 <button
                   onClick={onOpenPipeline}
@@ -217,11 +286,12 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
                   批量编排(实验功能)
                 </button>
               )}
+              */}
 
               {batchMode === 'normal' && (
-                <div className="flex items-center gap-1 ml-2">
+                <div className="flex items-center gap-1.5 ml-0 sm:ml-2 flex-wrap">
                   <span className="text-xs text-gray-500 dark:text-gray-400">数量:</span>
-                  {[1, 2, 3, 4].map((num) => (
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                     <button
                       key={num}
                       onClick={() => setBatchCount(num)}
@@ -250,14 +320,32 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
         {attachments.length > 0 && (
           <div className="flex gap-3 overflow-x-auto pt-3 pb-3 px-3 mb-2">
             {attachments.map((att, i) => (
-              <div key={i} className="relative h-20 w-20 shrink-0 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 group">
+              <div
+                key={`${att.file.name}-${i}`}
+                draggable={!disabled}
+                onDragStart={(e) => handleAttachmentDragStart(i, e)}
+                onDragOver={(e) => handleAttachmentDragOver(i, e)}
+                onDrop={(e) => handleAttachmentDrop(i, e)}
+                onDragEnd={handleAttachmentDragEnd}
+                title="拖拽调整顺序"
+                className={`relative h-20 w-20 shrink-0 cursor-grab rounded-lg border bg-gray-50 dark:bg-gray-800 group active:cursor-grabbing transition ${
+                  dragOverAttachmentIndex === i
+                    ? 'border-amber-500 ring-2 ring-amber-400/60'
+                    : 'border-gray-200 dark:border-gray-700'
+                } ${draggedAttachmentIndex === i ? 'opacity-50' : ''}`}
+              >
                 <img
                   src={att.preview}
                   alt="preview"
+                  draggable={false}
                   className="h-full w-full object-cover rounded-lg opacity-80 group-hover:opacity-100 transition"
                 />
                 <button
-                  onClick={() => removeAttachment(i)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeAttachment(i);
+                  }}
+                  onDragStart={(e) => e.preventDefault()}
                   className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600"
                 >
                   <X className="h-3 w-3" />
@@ -309,7 +397,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
 
           <button
             onClick={() => fileInputRef.current?.click()}
-            disabled={disabled || attachments.length >= 14}
+            disabled={disabled || attachments.length >= MAX_REFERENCE_IMAGES}
             className="mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-amber-600 dark:hover:text-amber-400 transition disabled:opacity-50"
             title="上传图片"
           >
@@ -319,7 +407,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
           {/* 拍照按钮（仅移动端显示） */}
           <button
             onClick={() => cameraInputRef.current?.click()}
-            disabled={disabled || attachments.length >= 14}
+            disabled={disabled || attachments.length >= MAX_REFERENCE_IMAGES}
             className="mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-amber-600 dark:hover:text-amber-400 transition disabled:opacity-50 sm:hidden"
             title="拍照上传"
           >
@@ -383,10 +471,10 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
         </div>
         <div className="mt-2 text-center text-xs text-gray-400 dark:text-gray-500">
            <span className="hidden sm:inline">
-             回车发送,Shift + 回车换行。支持粘贴、拖拽或点击上传最多 14 张参考图片。输入 <span className="font-mono text-purple-600 dark:text-purple-400">/t</span> 快速选择提示词。
+             回车发送,Shift + 回车换行。支持粘贴、拖拽或点击上传最多 {MAX_REFERENCE_IMAGES} 张参考图，每张不超过 {MAX_REFERENCE_IMAGE_SIZE_LABEL}。输入 <span className="font-mono text-purple-600 dark:text-purple-400">/t</span> 快速选择提示词。
            </span>
            <span className="sm:hidden">
-             点击发送按钮生成图片。支持上传、拍照最多 14 张参考图片。
+             点击发送按钮生成图片。支持上传、拍照最多 {MAX_REFERENCE_IMAGES} 张参考图，每张不超过 {MAX_REFERENCE_IMAGE_SIZE_LABEL}。
            </span>
         </div>
       </div>

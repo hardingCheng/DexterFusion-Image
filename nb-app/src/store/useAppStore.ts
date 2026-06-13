@@ -2,19 +2,15 @@ import { create } from 'zustand';
 import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 import { get as getVal, set as setVal, del as delVal } from 'idb-keyval';
 import { fetchBalance, BalanceInfo } from '../services/balanceService';
-import { AppSettings, ChatMessage, Part, ImageHistoryItem } from '../types';
+import { AppSettings, ChatMessage, Part, ImageHistoryItem, ModelCredential } from '../types';
 import { createThumbnail } from '../utils/imageUtils';
 import { DEFAULT_IMAGE_MODEL } from '../config/models';
 
-const OLD_API_ENDPOINT = 'https://api.kuai.host';
 const DEFAULT_API_ENDPOINT = 'https://api.aigod.one';
-
-const normalizeEndpoint = (endpoint?: string): string | undefined =>
-  endpoint === OLD_API_ENDPOINT ? DEFAULT_API_ENDPOINT : endpoint;
 
 const normalizeSettings = (settings: AppSettings): AppSettings => ({
   ...settings,
-  customEndpoint: normalizeEndpoint(settings.customEndpoint),
+  customEndpoint: DEFAULT_API_ENDPOINT,
 });
 
 // Custom IndexedDB storage
@@ -32,6 +28,7 @@ const storage: StateStorage = {
 
 interface AppState {
   apiKey: string | null;
+  modelCredentials: Record<string, ModelCredential>;
   settings: AppSettings;
   messages: ChatMessage[]; // Single Source of Truth
   imageHistory: ImageHistoryItem[]; // 图片历史记录
@@ -43,6 +40,9 @@ interface AppState {
 
   setInstallPrompt: (prompt: any) => void;
   setApiKey: (key: string) => void;
+  updateModelCredential: (modelName: string, credential: ModelCredential) => void;
+  removeModelCredential: (modelName: string) => void;
+  resolveModelCredential: (modelName?: string) => Required<ModelCredential> & { displayModel: string; endpoint: string };
   fetchBalance: () => Promise<void>;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
   addMessage: (message: ChatMessage) => void;
@@ -64,6 +64,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       apiKey: null,
+      modelCredentials: {},
       settings: {
         resolution: '1K',
         aspectRatio: 'Auto',
@@ -85,11 +86,51 @@ export const useAppStore = create<AppState>()(
       setInstallPrompt: (prompt) => set({ installPrompt: prompt }),
       setApiKey: (key) => set({ apiKey: key }),
 
+      updateModelCredential: (modelName, credential) =>
+        set((state) => {
+          const normalized: ModelCredential = {
+            apiKey: credential.apiKey?.trim(),
+            upstreamModel: credential.upstreamModel?.trim(),
+          };
+          const isEmpty = !normalized.apiKey && !normalized.upstreamModel;
+          const modelCredentials = { ...state.modelCredentials };
+          if (isEmpty) {
+            delete modelCredentials[modelName];
+          } else {
+            modelCredentials[modelName] = normalized;
+          }
+          return { modelCredentials };
+        }),
+
+      removeModelCredential: (modelName) =>
+        set((state) => {
+          const modelCredentials = { ...state.modelCredentials };
+          delete modelCredentials[modelName];
+          return { modelCredentials };
+        }),
+
+      resolveModelCredential: (modelName) => {
+        const state = get();
+        const displayModel = modelName || state.settings.modelName || DEFAULT_IMAGE_MODEL;
+        const modelCredential = state.modelCredentials[displayModel] || {};
+        return {
+          displayModel,
+          apiKey: modelCredential.apiKey || state.apiKey || '',
+          endpoint: DEFAULT_API_ENDPOINT,
+          upstreamModel: modelCredential.upstreamModel || displayModel,
+        };
+      },
+
       fetchBalance: async () => {
-        const { apiKey, settings } = get();
-        if (!apiKey) return;
+        const { settings, resolveModelCredential } = get();
+        const credential = resolveModelCredential(settings.modelName);
+        if (!credential.apiKey) return;
         try {
-          const balance = await fetchBalance(apiKey, settings);
+          const balance = await fetchBalance(credential.apiKey, {
+            ...settings,
+            customEndpoint: credential.endpoint,
+            modelName: credential.upstreamModel,
+          });
           set({ balance });
         } catch (error) {
           console.error('Failed to update balance:', error);
@@ -288,10 +329,20 @@ export const useAppStore = create<AppState>()(
         return {
           ...state,
           settings: normalizeSettings(state.settings),
+          modelCredentials: Object.fromEntries(
+            Object.entries(state.modelCredentials || {}).map(([modelName, credential]) => [
+              modelName,
+              {
+                apiKey: credential.apiKey,
+                upstreamModel: credential.upstreamModel,
+              },
+            ])
+          ),
         };
       },
       partialize: (state) => ({
         apiKey: state.apiKey,
+        modelCredentials: state.modelCredentials,
         settings: normalizeSettings(state.settings),
         imageHistory: state.imageHistory, // 持久化图片历史记录
       }),

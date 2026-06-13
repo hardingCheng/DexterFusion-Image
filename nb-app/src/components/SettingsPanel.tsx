@@ -13,21 +13,23 @@ import {
 } from '../config/models';
 
 export const SettingsPanel: React.FC = () => {
-  const { apiKey, settings, updateSettings, toggleSettings, removeApiKey, clearHistory, isSettingsOpen, fetchBalance, balance } = useAppStore();
+  const { apiKey, settings, updateSettings, toggleSettings, removeApiKey, clearHistory, isSettingsOpen, fetchBalance, balance, resolveModelCredential } = useAppStore();
   const { addToast, showDialog } = useUiStore();
   const [loadingBalance, setLoadingBalance] = useState(false);
   const aspectRatioOptions = getAspectRatioOptions(settings.modelName, settings.resolution);
+  const currentCredential = resolveModelCredential(settings.modelName);
+  const hasCurrentModelKey = Boolean(currentCredential.apiKey);
   
   // 首次加载或打开面板时如果没有余额数据，尝试获取
   useEffect(() => {
-    if (apiKey && isSettingsOpen && !balance && !loadingBalance) {
+    if (hasCurrentModelKey && isSettingsOpen && !balance && !loadingBalance) {
         setLoadingBalance(true);
         fetchBalance().finally(() => setLoadingBalance(false));
     }
-  }, [apiKey, isSettingsOpen, balance, fetchBalance]);
+  }, [hasCurrentModelKey, isSettingsOpen, balance, fetchBalance]);
 
   const handleFetchBalance = async () => {
-    if (!apiKey) {
+    if (!hasCurrentModelKey) {
       addToast("请先输入 API Key", 'error');
       return;
     }
@@ -54,7 +56,7 @@ export const SettingsPanel: React.FC = () => {
 
       <div className="space-y-4 sm:space-y-8 flex-1 overflow-y-auto pb-safe">
         {/* Balance Section */}
-        {apiKey && (
+        {hasCurrentModelKey && (
           <section className="p-3 sm:p-4 rounded-xl bg-linear-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800">
             <div className="flex items-center justify-between mb-2 sm:mb-3">
               <div className="flex items-center gap-1.5 sm:gap-2">
@@ -327,19 +329,19 @@ export const SettingsPanel: React.FC = () => {
                   onClick={() => {
                       showDialog({
                           type: 'confirm',
-                          title: '移除 API Key',
-                          message: "您确定要移除您的 API Key 吗？您的聊天记录将被保留。",
+                          title: '移除默认 API Key',
+                          message: "您确定要移除默认 API Key 吗？按模型覆盖的 API Key 不会被移除。",
                           confirmLabel: "移除",
                           onConfirm: () => {
                               removeApiKey();
-                              addToast("API Key 已移除", 'info');
+                              addToast("默认 API Key 已移除", 'info');
                           }
                       });
                   }}
                   className="w-full flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-2.5 sm:p-3 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
               >
                   <LogOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span className="text-xs sm:text-sm">清除 API Key</span>
+                  <span className="text-xs sm:text-sm">清除默认 API Key</span>
               </button>
             )}
         </section>
@@ -347,7 +349,7 @@ export const SettingsPanel: React.FC = () => {
         {/* Info */}
         <div className="mt-1 pb-2 sm:pb-4 text-center text-[9px] sm:text-[10px] text-gray-400 dark:text-gray-600 space-y-0.5 sm:space-y-1">
            <p>模型: {settings.modelName || DEFAULT_IMAGE_MODEL}</p>
-           <p className="truncate px-4">接口地址: {settings.customEndpoint || 'https://api.aigod.one'}</p>
+           <p className="truncate px-4">接口地址: {currentCredential.endpoint}</p>
         </div>
       </div>
     </div>

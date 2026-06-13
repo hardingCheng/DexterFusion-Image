@@ -16,8 +16,9 @@ const ImageHistoryPanel = lazyWithRetry(() => import('./components/ImageHistoryP
 const PromptLibraryPanel = lazyWithRetry(() => import('./components/PromptLibraryPanel').then(module => ({ default: module.PromptLibraryPanel })));
 
 const App: React.FC = () => {
-  const { apiKey, setApiKey, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance } = useAppStore();
+  const { setApiKey, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, resolveModelCredential } = useAppStore();
   const { togglePromptLibrary, isPromptLibraryOpen, showApiKeyModal, setShowApiKeyModal } = useUiStore();
+  const hasCurrentModelKey = Boolean(resolveModelCredential(settings.modelName).apiKey);
 
   // Preload components and prompt data after mount
   useEffect(() => {
@@ -47,13 +48,11 @@ const App: React.FC = () => {
 
     const params = new URLSearchParams(window.location.search);
     const urlApiKey = params.get('apikey');
-    const urlEndpoint = params.get('endpoint');
     const urlModel = params.get('model');
 
-    if (urlEndpoint || urlModel) {
+    if (urlModel) {
       updateSettings({
-        ...(urlEndpoint ? { customEndpoint: urlEndpoint } : {}),
-        ...(urlModel ? { modelName: urlModel } : {}),
+        modelName: urlModel,
       });
     }
 
@@ -104,7 +103,7 @@ const App: React.FC = () => {
 
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Balance Display - Only show when has API key */}
-          {apiKey && balance && (
+          {hasCurrentModelKey && balance && (
               <div
                   onClick={() => fetchBalance()}
                   className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition mr-2"
@@ -151,12 +150,12 @@ const App: React.FC = () => {
           <button
             onClick={() => setShowApiKeyModal(true)}
             className="rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-            title={apiKey ? "更换 API Key" : "设置 API Key"}
+            title={hasCurrentModelKey ? "更换 API Key" : "设置 API Key"}
           >
             <Key className="h-6 w-6" />
           </button>
 
-          {apiKey && (
+          {hasCurrentModelKey && (
             <>
               <button
                 onClick={() => setIsImageHistoryOpen(true)}

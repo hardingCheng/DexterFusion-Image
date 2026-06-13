@@ -1,0 +1,3 @@
+export const MAX_REFERENCE_IMAGES = 9;
+export const MAX_REFERENCE_IMAGE_BYTES = 10 * 1024 * 1024;
+export const MAX_REFERENCE_IMAGE_SIZE_LABEL = '10MB';

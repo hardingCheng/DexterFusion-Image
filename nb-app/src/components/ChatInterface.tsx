@@ -16,7 +16,6 @@ const MessageBubble = lazyWithRetry(() => import('./MessageBubble').then(m => ({
 
 export const ChatInterface: React.FC = () => {
   const {
-    apiKey,
     messages,
     settings,
     addMessage,
@@ -26,7 +25,8 @@ export const ChatInterface: React.FC = () => {
     setLoading,
     deleteMessage,
     sliceMessages,
-    fetchBalance
+    fetchBalance,
+    resolveModelCredential
   } = useAppStore();
 
   const { batchMode, batchCount, setBatchMode, addToast, setShowApiKeyModal } = useUiStore();
@@ -75,7 +75,7 @@ export const ChatInterface: React.FC = () => {
 
   const handleSend = async (text: string, attachments: Attachment[]) => {
     // 检查 API Key
-    if (!apiKey) {
+    if (!resolveModelCredential(settings.modelName).apiKey) {
       setShowApiKeyModal(true);
       addToast('请先输入 API Key', 'error');
       return;
@@ -118,7 +118,7 @@ export const ChatInterface: React.FC = () => {
     await executeSingleGeneration(text, attachments);
   };
 
-  const executeSingleGeneration = async (text: string, attachments: Attachment[]) => {
+  const executeSingleGeneration = async (text: string, attachments: Attachment[], modelNameOverride?: string) => {
     // Capture the current messages state *before* adding the new user message.
     // This allows us to generate history up to this point.
     const currentMessages = useAppStore.getState().messages;
@@ -173,16 +173,27 @@ export const ChatInterface: React.FC = () => {
       const startTime = Date.now();
       let thinkingDuration = 0;
       let isThinking = false;
+      const activeSettings = {
+        ...useAppStore.getState().settings,
+        ...(modelNameOverride ? { modelName: modelNameOverride } : {}),
+      };
+      const credential = resolveModelCredential(activeSettings.modelName);
+      const requestSettings = {
+        ...activeSettings,
+        displayModelName: credential.displayModel,
+        customEndpoint: credential.endpoint,
+        modelName: credential.upstreamModel,
+      };
 
-      if (settings.streamResponse) {
-          const stream = streamGeminiResponse(
-            apiKey,
-            history, 
-            text,
-            imagesPayload,
-            settings,
-            abortControllerRef.current.signal
-          );
+      if (activeSettings.streamResponse) {
+        const stream = streamGeminiResponse(
+          credential.apiKey,
+          history,
+          text,
+          imagesPayload,
+          requestSettings,
+          abortControllerRef.current.signal
+        );
 
           for await (const chunk of stream) {
               // Check if currently generating thought
@@ -205,14 +216,14 @@ export const ChatInterface: React.FC = () => {
               updateLastMessage(useAppStore.getState().messages.slice(-1)[0].parts, false, thinkingDuration);
           }
       } else {
-          const result = await generateContent(
-            apiKey,
-            history, 
-            text,
-            imagesPayload,
-            settings,
-            abortControllerRef.current.signal
-          );
+        const result = await generateContent(
+          credential.apiKey,
+          history,
+          text,
+          imagesPayload,
+          requestSettings,
+          abortControllerRef.current.signal
+        );
 
           // Calculate thinking duration for non-streaming response
           let totalDuration = (Date.now() - startTime) / 1000;
@@ -239,7 +250,7 @@ export const ChatInterface: React.FC = () => {
               base64Data: part.inlineData.data,
               prompt: text || '图片生成',
               timestamp: Date.now(),
-              modelName: settings.modelName,
+              modelName: credential.displayModel,
             });
           }
         });
@@ -326,9 +337,10 @@ export const ChatInterface: React.FC = () => {
     steps: Array<{ id: string; prompt: string; modelName?: string; status: string }>,
     initialAttachments: Attachment[]
   ) => {
-    if (!apiKey) {
+    const stepWithoutKey = steps.find((step) => !resolveModelCredential(step.modelName || settings.modelName).apiKey);
+    if (stepWithoutKey) {
       setShowApiKeyModal(true);
-      addToast('请先输入 API Key', 'error');
+      addToast(`模型 ${stepWithoutKey.modelName || settings.modelName || '默认'} 未配置 API Key`, 'error');
       return;
     }
 
@@ -353,25 +365,13 @@ export const ChatInterface: React.FC = () => {
     addToast(`开始串行编排，共 ${steps.length} 步`, 'info');
 
     let currentAttachments = initialAttachments;
-    const originalSettings = useAppStore.getState().settings;
-
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
       setBatchProgress({ current: i + 1, total: steps.length });
 
       try {
-        // 如果步骤指定了模型，临时切换模型
-        if (step.modelName) {
-          useAppStore.getState().updateSettings({ modelName: step.modelName });
-        }
-
         // 执行单次生成
-        await executeSingleGeneration(step.prompt, currentAttachments);
-
-        // 恢复原始模型设置
-        if (step.modelName) {
-          useAppStore.getState().updateSettings({ modelName: originalSettings.modelName });
-        }
+        await executeSingleGeneration(step.prompt, currentAttachments, step.modelName);
 
         // 等待一小段时间确保消息已添加到store
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -405,8 +405,6 @@ export const ChatInterface: React.FC = () => {
       } catch (error) {
         console.error(`Pipeline 步骤 ${i + 1} 失败:`, error);
         addToast(`步骤 ${i + 1} 失败，终止编排`, 'error');
-        // 恢复原始设置
-        useAppStore.getState().updateSettings({ modelName: originalSettings.modelName });
         break;
       }
     }
@@ -422,8 +420,6 @@ export const ChatInterface: React.FC = () => {
   ) => {
     setBatchProgress({ current: 0, total: steps.length });
     addToast(`开始并行编排，共 ${steps.length} 个任务`, 'info');
-
-    const originalSettings = useAppStore.getState().settings;
 
     // 1. 创建用户消息（显示并行编排信息）
     const userMsgId = Date.now().toString();
@@ -470,11 +466,6 @@ export const ChatInterface: React.FC = () => {
     // 为每个步骤创建独立的执行任务
     const tasks = steps.map(async (step, index) => {
       try {
-        // 临时切换模型
-        if (step.modelName) {
-          useAppStore.getState().updateSettings({ modelName: step.modelName });
-        }
-
         // 准备临时历史记录
         const currentMessages = useAppStore.getState().messages;
         const history = convertMessagesToHistory(currentMessages.slice(0, -2)); // 排除刚添加的两条消息
@@ -486,19 +477,24 @@ export const ChatInterface: React.FC = () => {
         }));
 
         // 执行生成
+        const stepSettings = step.modelName ? { ...settings, modelName: step.modelName } : settings;
+        const credential = resolveModelCredential(stepSettings.modelName);
+        if (!credential.apiKey) {
+          throw new Error(`模型 ${stepSettings.modelName || '默认'} 未配置 API Key`);
+        }
         const result = await generateContent(
-          apiKey,
+          credential.apiKey,
           history,
           step.prompt,
           imagesPayload,
-          step.modelName ? { ...settings, modelName: step.modelName } : settings,
+          {
+            ...stepSettings,
+            displayModelName: credential.displayModel,
+            customEndpoint: credential.endpoint,
+            modelName: credential.upstreamModel,
+          },
           new AbortController().signal
         );
-
-        // 恢复原始设置
-        if (step.modelName) {
-          useAppStore.getState().updateSettings({ modelName: originalSettings.modelName });
-        }
 
         // 收集生成的部分，为图片附加 prompt 信息（用于数据集下载）
         const partsWithPrompt = result.modelParts.map(part => {
@@ -550,9 +546,6 @@ export const ChatInterface: React.FC = () => {
     // 等待所有任务完成
     await Promise.all(tasks);
 
-    // 恢复原始设置
-    useAppStore.getState().updateSettings({ modelName: originalSettings.modelName });
-
     setBatchProgress({ current: 0, total: 0 });
     addToast(`并行编排完成！共生成 ${allGeneratedParts.filter(p => p.inlineData).length} 张图片`, 'success');
   };
@@ -565,8 +558,6 @@ export const ChatInterface: React.FC = () => {
     const totalTasks = initialAttachments.length * steps.length;
     setBatchProgress({ current: 0, total: totalTasks });
     addToast(`开始批量组合生成，共 ${initialAttachments.length} 图 × ${steps.length} 词 = ${totalTasks} 张`, 'info');
-
-    const originalSettings = useAppStore.getState().settings;
 
     // 1. 创建用户消息
     const userMsgId = Date.now().toString();
@@ -620,11 +611,6 @@ export const ChatInterface: React.FC = () => {
 
         const task = (async () => {
           try {
-            // 临时切换模型
-            if (step.modelName) {
-              useAppStore.getState().updateSettings({ modelName: step.modelName });
-            }
-
             // 准备历史记录
             const currentMessages = useAppStore.getState().messages;
             const history = convertMessagesToHistory(currentMessages.slice(0, -2));
@@ -636,19 +622,24 @@ export const ChatInterface: React.FC = () => {
             }];
 
             // 执行生成
+            const stepSettings = step.modelName ? { ...settings, modelName: step.modelName } : settings;
+            const credential = resolveModelCredential(stepSettings.modelName);
+            if (!credential.apiKey) {
+              throw new Error(`模型 ${stepSettings.modelName || '默认'} 未配置 API Key`);
+            }
             const result = await generateContent(
-              apiKey,
+              credential.apiKey,
               history,
               step.prompt,
               imagesPayload,
-              step.modelName ? { ...settings, modelName: step.modelName } : settings,
+              {
+                ...stepSettings,
+                displayModelName: credential.displayModel,
+                customEndpoint: credential.endpoint,
+                modelName: credential.upstreamModel,
+              },
               new AbortController().signal
             );
-
-            // 恢复原始设置
-            if (step.modelName) {
-              useAppStore.getState().updateSettings({ modelName: originalSettings.modelName });
-            }
 
             // 收集生成的部分，附加 prompt 信息
             const partsWithPrompt = result.modelParts.map(part => {
@@ -703,9 +694,6 @@ export const ChatInterface: React.FC = () => {
 
     // 等待所有任务完成
     await Promise.all(tasks);
-
-    // 恢复原始设置
-    useAppStore.getState().updateSettings({ modelName: originalSettings.modelName });
 
     setBatchProgress({ current: 0, total: 0 });
     addToast(`批量组合完成！共生成 ${allGeneratedParts.filter(p => p.inlineData).length} 张图片`, 'success');

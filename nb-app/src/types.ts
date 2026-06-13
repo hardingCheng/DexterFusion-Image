@@ -9,6 +9,11 @@ export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
 }
 
+export interface ModelCredential {
+  apiKey?: string;
+  upstreamModel?: string;
+}
+
 export interface Part {
   text?: string;
   inlineData?: {
@@ -74,7 +79,7 @@ export interface PipelineStep {
 export interface Pipeline {
   mode: 'serial' | 'parallel' | 'combination'; // 串行、并行或批量组合模式
   steps: PipelineStep[];
-  initialAttachments: Attachment[]; // 支持多张初始图片(最多14张)
+  initialAttachments: Attachment[]; // 支持多张初始图片(最多9张)
 }
 
 export interface PipelineTemplate {
