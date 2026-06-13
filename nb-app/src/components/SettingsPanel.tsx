@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
-import { X, LogOut, Trash2, DollarSign, RefreshCw } from 'lucide-react';
-import { formatBalance } from '../services/balanceService';
+import { X, LogOut, Trash2 } from 'lucide-react';
 import {
   DEFAULT_IMAGE_MODEL,
   getAspectRatioOptions,
@@ -13,37 +12,10 @@ import {
 } from '../config/models';
 
 export const SettingsPanel: React.FC = () => {
-  const { apiKey, settings, updateSettings, toggleSettings, removeApiKey, clearHistory, isSettingsOpen, fetchBalance, balance, resolveModelCredential } = useAppStore();
+  const { apiKey, settings, updateSettings, toggleSettings, removeApiKey, clearHistory, resolveModelCredential } = useAppStore();
   const { addToast, showDialog } = useUiStore();
-  const [loadingBalance, setLoadingBalance] = useState(false);
   const aspectRatioOptions = getAspectRatioOptions(settings.modelName, settings.resolution);
   const currentCredential = resolveModelCredential(settings.modelName);
-  const hasCurrentModelKey = Boolean(currentCredential.apiKey);
-  
-  // 首次加载或打开面板时如果没有余额数据，尝试获取
-  useEffect(() => {
-    if (hasCurrentModelKey && isSettingsOpen && !balance && !loadingBalance) {
-        setLoadingBalance(true);
-        fetchBalance().finally(() => setLoadingBalance(false));
-    }
-  }, [hasCurrentModelKey, isSettingsOpen, balance, fetchBalance]);
-
-  const handleFetchBalance = async () => {
-    if (!hasCurrentModelKey) {
-      addToast("请先输入 API Key", 'error');
-      return;
-    }
-
-    setLoadingBalance(true);
-    try {
-      await fetchBalance();
-      addToast("余额查询成功", 'success');
-    } catch (error: any) {
-      addToast(`余额查询失败: ${error.message}`, 'error');
-    } finally {
-      setLoadingBalance(false);
-    }
-  };
 
   return (
     <div className="flex flex-col h-full">
@@ -55,57 +27,6 @@ export const SettingsPanel: React.FC = () => {
       </div>
 
       <div className="space-y-4 sm:space-y-8 flex-1 overflow-y-auto pb-safe">
-        {/* Balance Section */}
-        {hasCurrentModelKey && (
-          <section className="p-3 sm:p-4 rounded-xl bg-linear-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800">
-            <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
-                <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">API 余额</h3>
-              </div>
-              <button
-                onClick={handleFetchBalance}
-                disabled={loadingBalance}
-                className="p-1 sm:p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/30 text-blue-600 dark:text-blue-400 disabled:opacity-50 transition"
-                title="刷新余额"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${loadingBalance ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-
-            {loadingBalance && !balance ? (
-              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 text-center py-2 sm:py-3">
-                查询中...
-              </div>
-            ) : balance ? (
-              <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-2 sm:p-2.5 text-center">
-                  <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">总额度</div>
-                  <div className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate">
-                    {formatBalance(balance.hardLimitUsd, balance.isUnlimited)}
-                  </div>
-                </div>
-                <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-2 sm:p-2.5 text-center">
-                  <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">已使用</div>
-                  <div className="text-xs sm:text-sm font-bold text-orange-600 dark:text-orange-400 truncate">
-                    {formatBalance(balance.usage, balance.isUnlimited)}
-                  </div>
-                </div>
-                <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-2 sm:p-2.5 text-center">
-                  <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">剩余</div>
-                  <div className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-400 truncate">
-                    {formatBalance(balance.remaining, balance.isUnlimited)}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 text-center py-1.5 sm:py-2">
-                点击刷新按钮查询余额
-              </div>
-            )}
-          </section>
-        )}
-
         {/* Resolution */}
         <section>
           <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">图像分辨率</label>
