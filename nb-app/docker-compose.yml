@@ -1,0 +1,10 @@
+services:
+  dexterfusion-image:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dexterfusion-image:latest
+    container_name: dexterfusion-image
+    restart: unless-stopped
+    ports:
+      - "5487:80"

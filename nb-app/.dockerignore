@@ -1,0 +1,8 @@
+node_modules
+dist
+dev-dist
+.git
+.idea
+.claude
+*.log
+.env
