@@ -226,7 +226,7 @@ const App: React.FC = () => {
             sm:static sm:z-auto sm:bg-transparent sm:backdrop-blur-none sm:pointer-events-auto sm:overflow-hidden
             sm:transition-[width,border-color]
             ${isSettingsOpen 
-              ? 'sm:w-80 sm:border-l sm:border-gray-200 dark:sm:border-gray-800' 
+              ? 'sm:w-[26rem] lg:w-[30rem] xl:w-[34rem] sm:border-l sm:border-gray-200 dark:sm:border-gray-800' 
               : 'sm:w-0 sm:border-l-0 sm:border-transparent'
             }
           `}
@@ -239,7 +239,7 @@ const App: React.FC = () => {
         >
            <div
              className={`
-               w-[90%] max-w-sm h-full sm:w-80 bg-white dark:bg-gray-950
+               w-[94vw] max-w-none h-full sm:w-full bg-white dark:bg-gray-950
                shadow-2xl sm:shadow-none
                overflow-y-auto overflow-x-hidden border-l border-gray-200 dark:border-gray-800 sm:border-none
 
