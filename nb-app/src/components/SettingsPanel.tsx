@@ -21,17 +21,17 @@ export const SettingsPanel: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4 sm:mb-6 sticky top-0 bg-white dark:bg-gray-950 z-10 pb-2">
-        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">设置</h2>
+      <div className="flex items-center justify-between mb-3 sticky top-0 bg-white dark:bg-gray-950 z-10 pb-2">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">设置</h2>
         <button onClick={toggleSettings} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg sm:hidden">
           <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
         </button>
       </div>
 
-      <div className="space-y-4 sm:space-y-8 flex-1 overflow-y-auto pb-safe">
+      <div className="space-y-3 sm:space-y-4 flex-1 overflow-y-auto pb-safe">
         {/* Resolution */}
         <section>
-          <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">图像分辨率</label>
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">图像分辨率</label>
           <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
             {(['1K', '2K', '4K'] as const).map((res) => {
               const isResolutionSupported = supportsImageResolution(settings.modelName);
@@ -53,7 +53,7 @@ export const SettingsPanel: React.FC = () => {
                     }
                   }}
                   disabled={isDisabled}
-                  className={`rounded-lg border px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition ${
+                  className={`rounded-lg border px-2 py-1.5 text-xs font-medium transition ${
                     settings.resolution === res
                       ? 'border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
                       : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700'
@@ -73,10 +73,10 @@ export const SettingsPanel: React.FC = () => {
 
         {/* Model Selection */}
         <section>
-          <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">模型选择</label>
-          <div className="space-y-3">
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">模型选择</label>
+          <div className="space-y-2">
             {IMAGE_MODEL_GROUPS.map((group) => (
-              <div key={group.label} className="space-y-1.5">
+              <div key={group.label} className="space-y-1">
                 <div className="px-1 text-[10px] sm:text-xs font-medium text-gray-400 dark:text-gray-500">
                   {group.label}
                 </div>
@@ -89,7 +89,7 @@ export const SettingsPanel: React.FC = () => {
                         modelName: model.value,
                         ...(supportsAspectRatio(model.value, settings.aspectRatio, settings.resolution) ? {} : { aspectRatio: 'Auto' }),
                       })}
-                      className={`w-full rounded-lg border px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium text-left transition ${
+                      className={`w-full rounded-lg border px-2.5 py-1.5 text-xs font-medium text-left transition ${
                         isActive
                           ? 'border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
                           : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700'
@@ -109,39 +109,39 @@ export const SettingsPanel: React.FC = () => {
 
         {/* Aspect Ratio */}
         <section>
-          <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">长宽比</label>
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">长宽比</label>
+          <div className="grid grid-cols-5 gap-1.5">
             {aspectRatioOptions.map((ratio) => {
               const isActive = settings.aspectRatio === ratio;
               const ratioPreviewStyles: Record<string, string> = {
-                'Auto': 'w-6 h-6 border-dashed',
-                '1:1': 'w-6 h-6',
-                '3:4': 'w-5 h-7',
-                '4:3': 'w-7 h-5',
-                '9:16': 'w-4 h-7',
-                '16:9': 'w-7 h-4',
-                '2:3': 'w-5 h-7',
-                '3:2': 'w-7 h-5',
-                '21:9': 'w-8 h-3',
-                '4:5': 'w-5 h-6',
+                'Auto': 'w-4 h-4 border-dashed',
+                '1:1': 'w-4 h-4',
+                '3:4': 'w-3.5 h-5',
+                '4:3': 'w-5 h-3.5',
+                '9:16': 'w-3 h-5',
+                '16:9': 'w-5 h-3',
+                '2:3': 'w-3.5 h-5',
+                '3:2': 'w-5 h-3.5',
+                '21:9': 'w-6 h-2.5',
+                '4:5': 'w-3.5 h-[18px]',
               };
 
               return (
                 <button
                   key={ratio}
                   onClick={() => updateSettings({ aspectRatio: ratio })}
-                  className={`flex flex-col items-center justify-center gap-1 sm:gap-2 rounded-lg border p-2 sm:p-3 transition ${
+                  className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg border px-1 py-1.5 transition ${
                     isActive
                       ? 'border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
                       : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900'
                   }`}
                 >
                   <div
-                    className={`rounded-sm border-2 ${
+                    className={`rounded-sm border ${
                       isActive ? 'border-amber-400 bg-amber-100 dark:bg-amber-400/20' : 'border-gray-400 dark:border-gray-600 bg-gray-200 dark:bg-gray-800'
                     } ${ratioPreviewStyles[ratio]}`}
                   />
-                  <span className="text-[10px] sm:text-xs font-medium">{ratio}</span>
+                  <span className="text-[10px] font-medium leading-none">{ratio}</span>
                 </button>
               );
             })}
@@ -150,8 +150,8 @@ export const SettingsPanel: React.FC = () => {
 
         {showGptImageQuality && (
           <section>
-            <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">生成质量</label>
-            <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">生成质量</label>
+            <div className="grid grid-cols-4 gap-1.5">
               {[
                 { value: 'auto', label: '自动' },
                 { value: 'low', label: '低' },
@@ -163,7 +163,7 @@ export const SettingsPanel: React.FC = () => {
                   <button
                     key={quality.value}
                     onClick={() => updateSettings({ gptImageQuality: quality.value as typeof settings.gptImageQuality })}
-                    className={`rounded-lg border px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition ${
+                    className={`rounded-lg border px-2 py-1.5 text-xs font-medium transition ${
                       isActive
                         ? 'border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
                         : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700'
