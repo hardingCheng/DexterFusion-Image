@@ -6,6 +6,7 @@ import {
   DEFAULT_IMAGE_MODEL,
   getAspectRatioOptions,
   IMAGE_MODEL_GROUPS,
+  isGptImage2Model,
   type ResolutionOption,
   supportsAspectRatio,
   supportsImageResolution,
@@ -16,6 +17,7 @@ export const SettingsPanel: React.FC = () => {
   const { addToast, showDialog } = useUiStore();
   const aspectRatioOptions = getAspectRatioOptions(settings.modelName, settings.resolution);
   const currentCredential = resolveModelCredential(settings.modelName);
+  const showGptImageQuality = isGptImage2Model(settings.modelName);
 
   return (
     <div className="flex flex-col h-full">
@@ -145,6 +147,35 @@ export const SettingsPanel: React.FC = () => {
             })}
           </div>
         </section>
+
+        {showGptImageQuality && (
+          <section>
+            <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">生成质量</label>
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+              {[
+                { value: 'auto', label: '自动' },
+                { value: 'low', label: '低' },
+                { value: 'medium', label: '中' },
+                { value: 'high', label: '高' },
+              ].map((quality) => {
+                const isActive = settings.gptImageQuality === quality.value;
+                return (
+                  <button
+                    key={quality.value}
+                    onClick={() => updateSettings({ gptImageQuality: quality.value as typeof settings.gptImageQuality })}
+                    className={`rounded-lg border px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition ${
+                      isActive
+                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                        : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700'
+                    }`}
+                  >
+                    {quality.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/*
         Streaming

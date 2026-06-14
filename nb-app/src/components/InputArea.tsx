@@ -479,10 +479,10 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
         </div>
         <div className="mt-2 text-center text-xs text-gray-400 dark:text-gray-500">
            <span className="hidden sm:inline">
-             回车发送,Shift + 回车换行。支持粘贴、拖拽或点击上传最多 {maxReferenceImages} 张参考图，每张不超过 {MAX_REFERENCE_IMAGE_SIZE_LABEL}。输入 <span className="font-mono text-purple-600 dark:text-purple-400">/t</span> 快速选择提示词。
+             回车发送,Shift + 回车换行。支持粘贴、拖拽或点击上传最多 <span className="font-semibold text-red-500 dark:text-red-400">{maxReferenceImages}</span> 张参考图，每张不超过 {MAX_REFERENCE_IMAGE_SIZE_LABEL}。输入 <span className="font-mono text-purple-600 dark:text-purple-400">/t</span> 快速选择提示词。
            </span>
            <span className="sm:hidden">
-             点击发送按钮生成图片。支持上传、拍照最多 {maxReferenceImages} 张参考图，每张不超过 {MAX_REFERENCE_IMAGE_SIZE_LABEL}。
+             点击发送按钮生成图片。支持上传、拍照最多 <span className="font-semibold text-red-500 dark:text-red-400">{maxReferenceImages}</span> 张参考图，每张不超过 {MAX_REFERENCE_IMAGE_SIZE_LABEL}。
            </span>
         </div>
       </div>

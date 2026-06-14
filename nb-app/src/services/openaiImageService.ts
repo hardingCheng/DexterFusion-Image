@@ -122,12 +122,14 @@ export const generateOpenAIImageContent = async (
         image: images.map((image, index) => base64ToFile(image.base64Data, image.mimeType, index)),
         prompt: normalizedPrompt,
         size,
+        quality: settings.gptImageQuality,
         n: 1,
       }, { signal })
     : await client.images.generate({
         model,
         prompt: normalizedPrompt,
         size,
+        quality: settings.gptImageQuality,
         n: 1,
       }, { signal });
 
