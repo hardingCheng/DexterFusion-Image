@@ -254,8 +254,10 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
 
   // 处理快速选择器选择
   const handleQuickPickerSelect = (prompt: string) => {
-    // 替换 /t 为实际提示词
-    const newText = inputText.replace(/\/t\s*/g, prompt);
+    const hasTemplateTrigger = /\/t\s*$/g.test(inputText);
+    const newText = hasTemplateTrigger
+      ? inputText.replace(/\/t\s*$/g, prompt)
+      : (inputText.trim() ? `${inputText}\n\n${prompt}` : prompt);
     setInputText(newText);
     setIsQuickPickerOpen(false);
 
