@@ -4,7 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
 import { Attachment } from '../types';
 import { PromptQuickPicker } from './PromptQuickPicker';
-import { MAX_REFERENCE_IMAGES, MAX_REFERENCE_IMAGE_BYTES, MAX_REFERENCE_IMAGE_SIZE_LABEL } from '../config/upload';
+import { getMaxReferenceImages, MAX_REFERENCE_IMAGE_BYTES, MAX_REFERENCE_IMAGE_SIZE_LABEL } from '../config/upload';
 
 interface Props {
   onSend: (text: string, attachments: Attachment[]) => void;
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArcadeOpen, onOpenPipeline, disabled }) => {
-  const { inputText, setInputText } = useAppStore();
+  const { inputText, setInputText, settings } = useAppStore();
   const { togglePromptLibrary, isPromptLibraryOpen, batchMode, batchCount, setBatchMode, setBatchCount, pendingReferenceImage, setPendingReferenceImage, addToast } = useUiStore();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -27,13 +27,21 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dragCounter = useRef(0);
+  const maxReferenceImages = getMaxReferenceImages(settings.modelName);
+
+  useEffect(() => {
+    if (attachments.length <= maxReferenceImages) return;
+
+    setAttachments(prev => prev.slice(0, maxReferenceImages));
+    addToast(`当前模型最多支持 ${maxReferenceImages} 张参考图，已保留前 ${maxReferenceImages} 张`, 'info');
+  }, [attachments.length, maxReferenceImages, addToast]);
 
   // 监听待添加的参考图片
   useEffect(() => {
     if (!pendingReferenceImage) return;
 
-    if (attachments.length >= MAX_REFERENCE_IMAGES) {
-      addToast(`最多上传 ${MAX_REFERENCE_IMAGES} 张参考图`, 'error');
+    if (attachments.length >= maxReferenceImages) {
+      addToast(`最多上传 ${maxReferenceImages} 张参考图`, 'error');
       setPendingReferenceImage(null);
       return;
     }
@@ -58,9 +66,9 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
       return;
     }
 
-    setAttachments(prev => [...prev, newAttachment].slice(0, MAX_REFERENCE_IMAGES));
+    setAttachments(prev => [...prev, newAttachment].slice(0, maxReferenceImages));
     setPendingReferenceImage(null); // 清除待添加图片
-  }, [pendingReferenceImage, attachments.length, setPendingReferenceImage, addToast]);
+  }, [pendingReferenceImage, attachments.length, maxReferenceImages, setPendingReferenceImage, addToast]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Check if device is likely mobile/tablet based on screen width
@@ -83,11 +91,11 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
 
   const processFiles = useCallback(async (files: File[]) => {
     const newAttachments: Attachment[] = [];
-    const availableSlots = Math.max(0, MAX_REFERENCE_IMAGES - attachments.length);
+    const availableSlots = Math.max(0, maxReferenceImages - attachments.length);
     const imageFiles = files.filter((file) => file.type.startsWith('image/'));
 
     if (imageFiles.length > availableSlots) {
-      addToast(`最多上传 ${MAX_REFERENCE_IMAGES} 张参考图`, 'error');
+      addToast(`最多上传 ${maxReferenceImages} 张参考图`, 'error');
     }
 
     for (const file of imageFiles.slice(0, availableSlots)) {
@@ -112,12 +120,12 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
       }
     }
 
-    setAttachments(prev => [...prev, ...newAttachments].slice(0, MAX_REFERENCE_IMAGES));
-  }, [addToast, attachments.length]);
+    setAttachments(prev => [...prev, ...newAttachments].slice(0, maxReferenceImages));
+  }, [addToast, attachments.length, maxReferenceImages]);
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
-      if (disabled || attachments.length >= MAX_REFERENCE_IMAGES) return;
+      if (disabled || attachments.length >= maxReferenceImages) return;
 
       const clipboardData = event.clipboardData;
       if (!clipboardData) return;
@@ -135,7 +143,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
 
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [disabled, processFiles, attachments.length]);
+  }, [disabled, processFiles, attachments.length, maxReferenceImages]);
 
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
     if (!Array.from(e.dataTransfer.types).includes('Files')) return;
@@ -175,7 +183,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
     setIsDragging(false);
     dragCounter.current = 0;
 
-    if (disabled || attachments.length >= MAX_REFERENCE_IMAGES) return;
+    if (disabled || attachments.length >= maxReferenceImages) return;
 
     const files = Array.from(e.dataTransfer.files);
     await processFiles(files);
@@ -397,7 +405,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
 
           <button
             onClick={() => fileInputRef.current?.click()}
-            disabled={disabled || attachments.length >= MAX_REFERENCE_IMAGES}
+            disabled={disabled || attachments.length >= maxReferenceImages}
             className="mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-amber-600 dark:hover:text-amber-400 transition disabled:opacity-50"
             title="上传图片"
           >
@@ -407,7 +415,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
           {/* 拍照按钮（仅移动端显示） */}
           <button
             onClick={() => cameraInputRef.current?.click()}
-            disabled={disabled || attachments.length >= MAX_REFERENCE_IMAGES}
+            disabled={disabled || attachments.length >= maxReferenceImages}
             className="mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-amber-600 dark:hover:text-amber-400 transition disabled:opacity-50 sm:hidden"
             title="拍照上传"
           >
@@ -471,10 +479,10 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
         </div>
         <div className="mt-2 text-center text-xs text-gray-400 dark:text-gray-500">
            <span className="hidden sm:inline">
-             回车发送,Shift + 回车换行。支持粘贴、拖拽或点击上传最多 {MAX_REFERENCE_IMAGES} 张参考图，每张不超过 {MAX_REFERENCE_IMAGE_SIZE_LABEL}。输入 <span className="font-mono text-purple-600 dark:text-purple-400">/t</span> 快速选择提示词。
+             回车发送,Shift + 回车换行。支持粘贴、拖拽或点击上传最多 {maxReferenceImages} 张参考图，每张不超过 {MAX_REFERENCE_IMAGE_SIZE_LABEL}。输入 <span className="font-mono text-purple-600 dark:text-purple-400">/t</span> 快速选择提示词。
            </span>
            <span className="sm:hidden">
-             点击发送按钮生成图片。支持上传、拍照最多 {MAX_REFERENCE_IMAGES} 张参考图，每张不超过 {MAX_REFERENCE_IMAGE_SIZE_LABEL}。
+             点击发送按钮生成图片。支持上传、拍照最多 {maxReferenceImages} 张参考图，每张不超过 {MAX_REFERENCE_IMAGE_SIZE_LABEL}。
            </span>
         </div>
       </div>

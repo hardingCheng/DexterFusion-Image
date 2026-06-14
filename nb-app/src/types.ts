@@ -79,7 +79,7 @@ export interface PipelineStep {
 export interface Pipeline {
   mode: 'serial' | 'parallel' | 'combination'; // 串行、并行或批量组合模式
   steps: PipelineStep[];
-  initialAttachments: Attachment[]; // 支持多张初始图片(最多9张)
+  initialAttachments: Attachment[]; // 支持多张初始图片
 }
 
 export interface PipelineTemplate {
