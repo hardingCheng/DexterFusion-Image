@@ -6,6 +6,7 @@ import {
   DEFAULT_IMAGE_MODEL,
   getAspectRatioOptions,
   IMAGE_MODEL_GROUPS,
+  isGeminiImageModel,
   isGptImage2Model,
   type ResolutionOption,
   supportsAspectRatio,
@@ -17,6 +18,7 @@ export const SettingsPanel: React.FC = () => {
   const { addToast, showDialog } = useUiStore();
   const aspectRatioOptions = getAspectRatioOptions(settings.modelName, settings.resolution);
   const currentCredential = resolveModelCredential(settings.modelName);
+  const showStreamResponse = isGeminiImageModel(settings.modelName);
   const showGptImageQuality = isGptImage2Model(settings.modelName);
 
   return (
@@ -177,11 +179,10 @@ export const SettingsPanel: React.FC = () => {
           </section>
         )}
 
-        {/*
-        Streaming
+        {showStreamResponse && (
         <section>
           <label className="flex items-center justify-between cursor-pointer group">
-            <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300">流式响应</span>
+            <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300">流式生成</span>
             <div className="relative">
               <input
                 type="checkbox"
@@ -209,7 +210,7 @@ export const SettingsPanel: React.FC = () => {
              逐个 token 流式传输模型的响应。对于一次性响应请禁用。
           </p>
         </section>
-        */}
+        )}
         
         {/*
         App Installation

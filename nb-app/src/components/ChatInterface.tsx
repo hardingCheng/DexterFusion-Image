@@ -7,6 +7,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { streamGeminiResponse, generateContent } from '../services/geminiService';
 import { convertMessagesToHistory } from '../utils/messageUtils';
 import { ChatMessage, Attachment, Part } from '../types';
+import { isGeminiImageModel } from '../config/models';
 import { Sparkles } from 'lucide-react';
 import { lazyWithRetry } from '../utils/lazyLoadUtils';
 
@@ -184,8 +185,9 @@ export const ChatInterface: React.FC = () => {
         customEndpoint: credential.endpoint,
         modelName: credential.upstreamModel,
       };
+      const useStreaming = isGeminiImageModel(credential.displayModel) && activeSettings.streamResponse;
 
-      if (activeSettings.streamResponse) {
+      if (useStreaming) {
         const stream = streamGeminiResponse(
           credential.apiKey,
           history,

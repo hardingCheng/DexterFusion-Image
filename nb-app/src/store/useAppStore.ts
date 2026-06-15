@@ -72,7 +72,7 @@ export const useAppStore = create<AppState>()(
         gptImageQuality: 'auto',
         useGrounding: false,
         enableThinking: false,
-        streamResponse: true,
+        streamResponse: false,
         customEndpoint: DEFAULT_API_ENDPOINT,
         modelName: DEFAULT_IMAGE_MODEL,
         theme: 'system',
@@ -318,6 +318,7 @@ export const useAppStore = create<AppState>()(
     {
       name: 'gemini-pro-storage',
       storage: createJSONStorage(() => storage),
+      version: 1,
       migrate: (persistedState) => {
         if (!persistedState || typeof persistedState !== 'object') {
           return persistedState;
@@ -330,7 +331,7 @@ export const useAppStore = create<AppState>()(
 
         return {
           ...state,
-          settings: normalizeSettings(state.settings),
+          settings: normalizeSettings({ ...state.settings, streamResponse: false }),
           modelCredentials: Object.fromEntries(
             Object.entries(state.modelCredentials || {}).map(([modelName, credential]) => [
               modelName,

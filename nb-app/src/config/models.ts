@@ -60,6 +60,9 @@ const GPT_IMAGE_2_MAX_EDGE = 3840;
 export const isGptImage2Model = (modelName?: string): boolean =>
   (modelName || DEFAULT_IMAGE_MODEL) === GPT_IMAGE_2_MODEL;
 
+export const isGeminiImageModel = (modelName?: string): boolean =>
+  (modelName || DEFAULT_IMAGE_MODEL).startsWith('gemini-');
+
 export const getAspectRatioOptions = (
   modelName?: string,
   resolution: ResolutionOption = '1K',
