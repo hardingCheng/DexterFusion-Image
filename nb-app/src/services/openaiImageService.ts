@@ -127,6 +127,7 @@ export const generateOpenAIImageContent = async (
         prompt: normalizedPrompt,
         size,
         quality: settings.gptImageQuality,
+        response_format: 'b64_json',
         n: 1,
       }, { signal })
     : await client.images.generate({
@@ -134,6 +135,7 @@ export const generateOpenAIImageContent = async (
         prompt: normalizedPrompt,
         size,
         quality: settings.gptImageQuality,
+        response_format: 'b64_json',
         n: 1,
       }, { signal });
 
