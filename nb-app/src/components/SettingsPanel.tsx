@@ -5,7 +5,9 @@ import { X, LogOut, Trash2 } from 'lucide-react';
 import {
   DEFAULT_IMAGE_MODEL,
   getAspectRatioOptions,
+  getGptImage2Size,
   IMAGE_MODEL_GROUPS,
+  isExperimentalGptImage2Size,
   isGeminiImageModel,
   isGptImage2Model,
   type ResolutionOption,
@@ -20,6 +22,10 @@ export const SettingsPanel: React.FC = () => {
   const currentCredential = resolveModelCredential(settings.modelName);
   const showStreamResponse = isGeminiImageModel(settings.modelName);
   const showGptImageQuality = isGptImage2Model(settings.modelName);
+  const gptImageSize = showGptImageQuality && settings.aspectRatio !== 'Auto'
+    ? getGptImage2Size(settings.resolution, settings.aspectRatio)
+    : null;
+  const showGptExperimentalWarning = !!gptImageSize && isExperimentalGptImage2Size(gptImageSize);
 
   return (
     <div className="flex flex-col h-full">
@@ -176,6 +182,14 @@ export const SettingsPanel: React.FC = () => {
                 );
               })}
             </div>
+            {gptImageSize && (
+              <p className="mt-1.5 text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
+                当前尺寸：{gptImageSize}
+                {showGptExperimentalWarning && (
+                  <span className="text-amber-600 dark:text-amber-400">，超过 2560x1440 总像素量，属于实验性范围</span>
+                )}
+              </p>
+            )}
           </section>
         )}
 

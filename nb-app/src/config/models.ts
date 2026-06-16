@@ -56,6 +56,13 @@ export const FULL_ASPECT_RATIO_IMAGE_MODELS = new Set<string>([
 const GPT_IMAGE_2_MIN_PIXELS = 655_360;
 const GPT_IMAGE_2_MAX_PIXELS = 8_294_400;
 const GPT_IMAGE_2_MAX_EDGE = 3840;
+const GPT_IMAGE_2_MAX_ASPECT_RATIO = 3;
+export const GPT_IMAGE_2_EXPERIMENTAL_PIXELS = 2560 * 1440;
+const GPT_IMAGE_2_TARGET_LONG_EDGE: Record<ResolutionOption, number> = {
+  '1K': 1024,
+  '2K': 2048,
+  '4K': GPT_IMAGE_2_MAX_EDGE,
+};
 
 export const isGptImage2Model = (modelName?: string): boolean =>
   (modelName || DEFAULT_IMAGE_MODEL) === GPT_IMAGE_2_MODEL;
@@ -81,6 +88,65 @@ export const supportsAspectRatio = (
   resolution: ResolutionOption = '1K',
 ): boolean => getAspectRatioOptions(modelName, resolution).includes(aspectRatio as AspectRatioOption);
 
+const gcd = (a: number, b: number): number => {
+  let x = Math.abs(a);
+  let y = Math.abs(b);
+
+  while (y !== 0) {
+    const next = x % y;
+    x = y;
+    y = next;
+  }
+
+  return x || 1;
+};
+
+const parseAspectRatio = (aspectRatio: string): [number, number] | null => {
+  const [rawWidth, rawHeight] = aspectRatio.split(':').map((value) => Number(value));
+  if (!Number.isInteger(rawWidth) || !Number.isInteger(rawHeight) || rawWidth <= 0 || rawHeight <= 0) {
+    return null;
+  }
+
+  const divisor = gcd(rawWidth, rawHeight);
+  return [rawWidth / divisor, rawHeight / divisor];
+};
+
+const parseSize = (size: string): [number, number] | null => {
+  const [rawWidth, rawHeight] = size.split('x').map((value) => Number(value));
+  if (!Number.isInteger(rawWidth) || !Number.isInteger(rawHeight) || rawWidth <= 0 || rawHeight <= 0) {
+    return null;
+  }
+
+  return [rawWidth, rawHeight];
+};
+
+export const isValidGptImage2Dimensions = (width: number, height: number): boolean => {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+    return false;
+  }
+
+  const longEdge = Math.max(width, height);
+  const shortEdge = Math.min(width, height);
+  const pixels = width * height;
+
+  return width % 16 === 0
+    && height % 16 === 0
+    && longEdge <= GPT_IMAGE_2_MAX_EDGE
+    && longEdge / shortEdge <= GPT_IMAGE_2_MAX_ASPECT_RATIO
+    && pixels >= GPT_IMAGE_2_MIN_PIXELS
+    && pixels <= GPT_IMAGE_2_MAX_PIXELS;
+};
+
+export const isExperimentalGptImage2Size = (size: string): boolean => {
+  const dimensions = parseSize(size);
+  if (!dimensions) {
+    return false;
+  }
+
+  const [width, height] = dimensions;
+  return width * height > GPT_IMAGE_2_EXPERIMENTAL_PIXELS;
+};
+
 export const getGptImage2Size = (
   resolution: ResolutionOption,
   aspectRatio: string,
@@ -89,35 +155,38 @@ export const getGptImage2Size = (
     return 'auto';
   }
 
-  const [ratioWidth, ratioHeight] = aspectRatio.split(':').map((value) => Number(value));
-  if (!ratioWidth || !ratioHeight) {
+  const ratio = parseAspectRatio(aspectRatio);
+  if (!ratio) {
     return 'auto';
   }
 
-  const edgeLimit = resolution === '1K'
-    ? 1024 / Math.min(ratioWidth, ratioHeight)
-    : (resolution === '2K' ? 2048 : GPT_IMAGE_2_MAX_EDGE) / Math.max(ratioWidth, ratioHeight);
-  const maxScale = Math.floor(edgeLimit);
+  const [ratioWidth, ratioHeight] = ratio;
+  const targetLongEdge = GPT_IMAGE_2_TARGET_LONG_EDGE[resolution];
+  const maxScale = Math.floor(GPT_IMAGE_2_MAX_EDGE / Math.max(ratioWidth, ratioHeight));
+  const candidates: Array<{ width: number; height: number; longEdge: number; scale: number }> = [];
 
-  for (let scale = maxScale; scale > 0; scale -= 1) {
+  for (let scale = 1; scale <= maxScale; scale += 1) {
     const width = ratioWidth * scale;
     const height = ratioHeight * scale;
-    const longEdge = Math.max(width, height);
-    const shortEdge = Math.min(width, height);
-    const pixels = width * height;
 
-    if (width % 16 !== 0 || height % 16 !== 0) {
-      continue;
+    if (isValidGptImage2Dimensions(width, height)) {
+      candidates.push({
+        width,
+        height,
+        longEdge: Math.max(width, height),
+        scale,
+      });
     }
-    if (longEdge > GPT_IMAGE_2_MAX_EDGE || longEdge / shortEdge > 3) {
-      continue;
-    }
-    if (pixels < GPT_IMAGE_2_MIN_PIXELS || pixels > GPT_IMAGE_2_MAX_PIXELS) {
-      continue;
-    }
-
-    return `${width}x${height}`;
   }
 
-  return 'auto';
+  if (candidates.length === 0) {
+    return 'auto';
+  }
+
+  const withinTarget = candidates.filter((candidate) => candidate.longEdge <= targetLongEdge);
+  const selected = withinTarget.length > 0
+    ? withinTarget.reduce((best, candidate) => (candidate.scale > best.scale ? candidate : best))
+    : candidates.reduce((best, candidate) => (candidate.scale < best.scale ? candidate : best));
+
+  return `${selected.width}x${selected.height}`;
 };
