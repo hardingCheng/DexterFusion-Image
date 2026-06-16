@@ -60,7 +60,12 @@ export const createThumbnail = (base64Data: string, mimeType: string, maxWidth: 
  * @param base64Data 图片的 Base64 数据
  * @param filename 可选的文件名，如果不提供则自动生成
  */
-export const downloadImage = (mimeType: string, base64Data: string, filename?: string) => {
+export const downloadImage = (
+  mimeType: string,
+  base64Data: string,
+  filename?: string,
+  filenamePrefix: string = 'gemini-image'
+) => {
   const blob = base64ToBlob(base64Data, mimeType);
   const url = URL.createObjectURL(blob);
 
@@ -71,7 +76,7 @@ export const downloadImage = (mimeType: string, base64Data: string, filename?: s
     link.download = filename;
   } else {
     const extension = mimeType.split('/')[1] || 'png';
-    link.download = `gemini-image-${Date.now()}.${extension}`;
+    link.download = `${filenamePrefix}-${Date.now()}.${extension}`;
   }
   
   document.body.appendChild(link);

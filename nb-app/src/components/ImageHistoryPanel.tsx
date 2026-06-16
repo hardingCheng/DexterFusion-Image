@@ -5,6 +5,7 @@ import { get as getItem } from 'idb-keyval';
 import { X, Download, Trash2, ImageIcon, Search, Copy, ArrowRight, ArrowLeft, RefreshCw, Loader2, Edit } from 'lucide-react';
 import { ImageHistoryItem } from '../types';
 import { downloadImage } from '../utils/imageUtils';
+import { isGptImage2Model } from '../config/models';
 
 interface Props {
   isOpen: boolean;
@@ -103,7 +104,8 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     }
 
     if (data) {
-        downloadImage(image.mimeType, data, `image-${image.timestamp}.${image.mimeType.split('/')[1]}`);
+        const prefix = isGptImage2Model(image.modelName) ? 'gpt-image' : 'image';
+        downloadImage(image.mimeType, data, `${prefix}-${image.timestamp}.${image.mimeType.split('/')[1]}`);
         addToast('图片已下载', 'success');
     } else {
         addToast('下载失败：找不到原图', 'error');

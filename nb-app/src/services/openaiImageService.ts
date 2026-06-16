@@ -90,9 +90,13 @@ const parseImageResponse = async (
           mimeType: 'image/png',
           data: item.b64_json,
         },
+        downloadFilenamePrefix: 'gpt-image',
       });
     } else if (item.url) {
-      parts.push(await imageUrlToPart(item.url, signal));
+      parts.push({
+        ...(await imageUrlToPart(item.url, signal)),
+        downloadFilenamePrefix: 'gpt-image',
+      });
     }
   }
 
