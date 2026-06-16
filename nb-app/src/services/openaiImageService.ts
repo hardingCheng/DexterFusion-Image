@@ -7,6 +7,12 @@ type OpenAIImageSettings = AppSettings & {
   displayModelName?: string;
 };
 
+type UnknownRecord = Record<string, unknown>;
+
+const isRecord = (value: unknown): value is UnknownRecord => (
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+);
+
 const constructUserContent = (
   prompt: string,
   images: { base64Data: string; mimeType: string }[],
@@ -77,22 +83,114 @@ const imageUrlToPart = async (url: string, signal?: AbortSignal): Promise<Part> 
   };
 };
 
+const parseMaybeJson = (value: unknown): unknown => {
+  if (typeof value !== 'string') return value;
+
+  const trimmed = value.trim();
+  if (!trimmed || (!trimmed.startsWith('{') && !trimmed.startsWith('['))) {
+    return value;
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+};
+
+const unwrapImageResponse = (response: unknown): unknown => {
+  const parsed = parseMaybeJson(response);
+  if (!isRecord(parsed)) return parsed;
+
+  for (const key of ['body', 'response', 'result', 'raw']) {
+    const nested = parsed[key];
+    const nestedParsed = parseMaybeJson(nested);
+    if (nestedParsed !== nested || (isRecord(nestedParsed) && Array.isArray(nestedParsed.data))) {
+      return unwrapImageResponse(nestedParsed);
+    }
+  }
+
+  return parsed;
+};
+
+const getImageItems = (response: unknown): unknown[] => {
+  const unwrapped = unwrapImageResponse(response);
+
+  if (Array.isArray(unwrapped)) return unwrapped;
+  if (!isRecord(unwrapped)) return [];
+
+  const data = parseMaybeJson(unwrapped.data);
+  if (Array.isArray(data)) return data;
+
+  const images = parseMaybeJson(unwrapped.images);
+  if (Array.isArray(images)) return images;
+
+  return [];
+};
+
+const normalizeImageBase64 = (value: unknown): { mimeType: string; data: string } | null => {
+  if (typeof value !== 'string') return null;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const dataUrlMatch = trimmed.match(/^data:([^;,]+);base64,(.*)$/s);
+  if (dataUrlMatch) {
+    return {
+      mimeType: dataUrlMatch[1] || 'image/png',
+      data: dataUrlMatch[2].replace(/\s/g, ''),
+    };
+  }
+
+  return {
+    mimeType: 'image/png',
+    data: trimmed.replace(/\s/g, ''),
+  };
+};
+
+const describeUnexpectedImageResponse = (response: unknown): string => {
+  const unwrapped = unwrapImageResponse(response);
+
+  if (typeof unwrapped === 'string') {
+    const trimmed = unwrapped.trim();
+    if (!trimmed) return '响应为空字符串';
+    if (trimmed.startsWith('<')) {
+      return `响应看起来是 HTML：${trimmed.slice(0, 120)}`;
+    }
+    return `响应是字符串：${trimmed.slice(0, 120)}`;
+  }
+
+  if (isRecord(unwrapped)) {
+    const keys = Object.keys(unwrapped).join(', ');
+    return `响应里没有图片字段，可见键：${keys || '无'}`;
+  }
+
+  if (Array.isArray(unwrapped)) {
+    return `响应是数组，但没有可用图片项，长度：${unwrapped.length}`;
+  }
+
+  return `响应类型异常：${typeof unwrapped}`;
+};
+
 const parseImageResponse = async (
-  response: Awaited<ReturnType<OpenAI['images']['generate']>>,
+  response: Awaited<ReturnType<OpenAI['images']['generate']>> | unknown,
   signal?: AbortSignal,
 ): Promise<Part[]> => {
   const parts: Part[] = [];
 
-  for (const item of response.data || []) {
-    if (item.b64_json) {
+  for (const item of getImageItems(response)) {
+    if (!isRecord(item)) continue;
+
+    const base64Image = normalizeImageBase64(item.b64_json ?? item.base64 ?? item.image_base64);
+    if (base64Image) {
       parts.push({
         inlineData: {
-          mimeType: 'image/png',
-          data: item.b64_json,
+          mimeType: base64Image.mimeType,
+          data: base64Image.data,
         },
         downloadFilenamePrefix: 'gpt-image',
       });
-    } else if (item.url) {
+    } else if (typeof item.url === 'string' && item.url) {
       parts.push({
         ...(await imageUrlToPart(item.url, signal)),
         downloadFilenamePrefix: 'gpt-image',
@@ -101,7 +199,7 @@ const parseImageResponse = async (
   }
 
   if (parts.length === 0) {
-    throw new Error('OpenAI 图片接口没有返回图片。');
+    throw new Error(`OpenAI 图片接口没有返回可用图片。${describeUnexpectedImageResponse(response)}`);
   }
 
   return parts;
