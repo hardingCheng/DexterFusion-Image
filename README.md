@@ -142,10 +142,10 @@ bun build
 
 ```bash
 # 1. 构建镜像
-docker build -t dexterfusion-image .
+docker build -t aigod-fusion-image .
 
 # 2. 运行容器
-docker run -p 3000:3000 dexterfusion-image
+docker run -p 5487:80 --name aigod-fusion-image aigod-fusion-image
 ```
 
 ---
