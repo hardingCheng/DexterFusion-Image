@@ -21,7 +21,6 @@ export interface Part {
     mimeType: string;
     data: string;
   };
-  downloadFilenamePrefix?: string;
   thought?: boolean;
   thoughtSignature?: string;
   prompt?: string; // 用于数据集下载时的图片标注

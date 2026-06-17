@@ -72,7 +72,7 @@ const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              downloadImage(part.inlineData!.mimeType, part.inlineData!.data, undefined, part.downloadFilenamePrefix);
+              downloadImage(part.inlineData!.mimeType, part.inlineData!.data);
             }}
             className="p-2 rounded-lg bg-black/60 hover:bg-black/80 text-white shadow-lg backdrop-blur-sm transition-all"
             title="下载图片"
@@ -130,7 +130,7 @@ const ImageWithDownload: React.FC<{ part: Part; index: number }> = ({ part, inde
         <button
           onClick={(e) => {
             e.stopPropagation();
-            downloadImage(part.inlineData!.mimeType, part.inlineData!.data, undefined, part.downloadFilenamePrefix);
+            downloadImage(part.inlineData!.mimeType, part.inlineData!.data);
           }}
           className="p-2.5 rounded-lg bg-black/60 hover:bg-black/80 text-white shadow-lg backdrop-blur-sm transition-all"
           title="下载图片"

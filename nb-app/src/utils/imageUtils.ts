@@ -14,6 +14,33 @@ export const base64ToBlob = (base64Data: string, mimeType: string): Blob => {
   return new Blob([byteArray], { type: mimeType });
 };
 
+const getImageExtension = (mimeType: string) => {
+  if (mimeType.includes('jpeg') || mimeType.includes('jpg')) return 'jpg';
+  if (mimeType.includes('webp')) return 'webp';
+  if (mimeType.includes('gif')) return 'gif';
+  return 'png';
+};
+
+const formatDownloadTimestamp = (timestamp: number) => {
+  const date = new Date(timestamp);
+  const pad = (value: number, length = 2) => String(value).padStart(length, '0');
+
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+    '-',
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+    pad(date.getSeconds()),
+    '-',
+    pad(date.getMilliseconds(), 3),
+  ].join('');
+};
+
+export const createImageDownloadFilename = (mimeType: string, timestamp: number = Date.now()) =>
+  `dexterfusion-image-${formatDownloadTimestamp(timestamp)}.${getImageExtension(mimeType)}`;
+
 /**
  * 创建图片缩略图
  * @param base64Data 原图 Base64
@@ -64,20 +91,14 @@ export const downloadImage = (
   mimeType: string,
   base64Data: string,
   filename?: string,
-  filenamePrefix: string = 'gemini-image'
+  timestamp?: number
 ) => {
   const blob = base64ToBlob(base64Data, mimeType);
   const url = URL.createObjectURL(blob);
 
   const link = document.createElement('a');
   link.href = url;
-  
-  if (filename) {
-    link.download = filename;
-  } else {
-    const extension = mimeType.split('/')[1] || 'png';
-    link.download = `${filenamePrefix}-${Date.now()}.${extension}`;
-  }
+  link.download = filename || createImageDownloadFilename(mimeType, timestamp);
   
   document.body.appendChild(link);
   link.click();

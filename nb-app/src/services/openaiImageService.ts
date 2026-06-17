@@ -188,12 +188,10 @@ const parseImageResponse = async (
           mimeType: base64Image.mimeType,
           data: base64Image.data,
         },
-        downloadFilenamePrefix: 'gpt-image',
       });
     } else if (typeof item.url === 'string' && item.url) {
       parts.push({
         ...(await imageUrlToPart(item.url, signal)),
-        downloadFilenamePrefix: 'gpt-image',
       });
     }
   }
