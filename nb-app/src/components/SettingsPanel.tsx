@@ -5,7 +5,8 @@ import { X, LogOut, Trash2 } from 'lucide-react';
 import {
   DEFAULT_IMAGE_MODEL,
   getAspectRatioOptions,
-  getGptImage2Size,
+  getCustomGptImage2Size,
+  getEffectiveGptImage2Size,
   IMAGE_MODEL_GROUPS,
   isExperimentalGptImage2Size,
   isGeminiImageModel,
@@ -22,10 +23,28 @@ export const SettingsPanel: React.FC = () => {
   const currentCredential = resolveModelCredential(settings.modelName);
   const showStreamResponse = isGeminiImageModel(settings.modelName);
   const showGptImageQuality = isGptImage2Model(settings.modelName);
-  const gptImageSize = showGptImageQuality && settings.aspectRatio !== 'Auto'
-    ? getGptImage2Size(settings.resolution, settings.aspectRatio)
+  const hasCustomGptImageSize = settings.gptImageCustomWidth !== undefined || settings.gptImageCustomHeight !== undefined;
+  const customGptImageSize = showGptImageQuality
+    ? getCustomGptImage2Size(settings.gptImageCustomWidth, settings.gptImageCustomHeight)
+    : null;
+  const hasInvalidCustomGptImageSize = showGptImageQuality
+    && hasCustomGptImageSize
+    && !customGptImageSize;
+  const gptImageSize = showGptImageQuality
+    ? getEffectiveGptImage2Size(
+      settings.resolution,
+      settings.aspectRatio,
+      settings.gptImageCustomWidth,
+      settings.gptImageCustomHeight,
+    )
     : null;
   const showGptExperimentalWarning = !!gptImageSize && isExperimentalGptImage2Size(gptImageSize);
+  const updateGptImageCustomSize = (key: 'gptImageCustomWidth' | 'gptImageCustomHeight', value: string) => {
+    const parsed = Number(value);
+    updateSettings({
+      [key]: value === '' || !Number.isInteger(parsed) ? undefined : parsed,
+    });
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -158,6 +177,56 @@ export const SettingsPanel: React.FC = () => {
 
         {showGptImageQuality && (
           <section>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">自定义尺寸</label>
+            <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-1.5">
+              <input
+                type="number"
+                min={16}
+                max={3840}
+                step={16}
+                inputMode="numeric"
+                value={settings.gptImageCustomWidth ?? ''}
+                onChange={(e) => updateGptImageCustomSize('gptImageCustomWidth', e.target.value)}
+                placeholder="宽"
+                className="min-w-0 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-2 py-1.5 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+              />
+              <span className="text-xs text-gray-400 dark:text-gray-500">x</span>
+              <input
+                type="number"
+                min={16}
+                max={3840}
+                step={16}
+                inputMode="numeric"
+                value={settings.gptImageCustomHeight ?? ''}
+                onChange={(e) => updateGptImageCustomSize('gptImageCustomHeight', e.target.value)}
+                placeholder="高"
+                className="min-w-0 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-2 py-1.5 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+              />
+              <button
+                onClick={() => updateSettings({ gptImageCustomWidth: undefined, gptImageCustomHeight: undefined })}
+                className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900 transition"
+              >
+                重置
+              </button>
+            </div>
+            {hasInvalidCustomGptImageSize && (
+              <p className="mt-1.5 text-[10px] sm:text-xs text-red-500 dark:text-red-400">
+                自定义尺寸无效，将使用下方长宽比尺寸。宽高需为 16 的倍数，最长边不超过 3840，比例不超过 3:1，像素量在 655360 到 8294400 之间。
+              </p>
+            )}
+            {gptImageSize && (
+              <p className="mt-1.5 text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
+                当前传递尺寸：{gptImageSize}
+                {showGptExperimentalWarning && (
+                  <span className="text-amber-600 dark:text-amber-400">，超过 2560x1440 总像素量，属于实验性范围</span>
+                )}
+              </p>
+            )}
+          </section>
+        )}
+
+        {showGptImageQuality && (
+          <section>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">生成质量</label>
             <div className="grid grid-cols-4 gap-1.5">
               {[
@@ -182,14 +251,6 @@ export const SettingsPanel: React.FC = () => {
                 );
               })}
             </div>
-            {gptImageSize && (
-              <p className="mt-1.5 text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
-                当前尺寸：{gptImageSize}
-                {showGptExperimentalWarning && (
-                  <span className="text-amber-600 dark:text-amber-400">，超过 2560x1440 总像素量，属于实验性范围</span>
-                )}
-              </p>
-            )}
           </section>
         )}
 

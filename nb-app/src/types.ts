@@ -2,6 +2,8 @@ export interface AppSettings {
   resolution: '1K' | '2K' | '4K';
   aspectRatio: 'Auto' | '1:1' | '3:4' | '4:3' | '9:16' | '16:9' | '21:9' | '2:3' | '3:2' | '4:5';
   gptImageQuality: 'auto' | 'low' | 'medium' | 'high';
+  gptImageCustomWidth?: number;
+  gptImageCustomHeight?: number;
   useGrounding: boolean;
   enableThinking: boolean;
   streamResponse: boolean;

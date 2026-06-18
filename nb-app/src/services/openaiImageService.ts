@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import type { Content, Part as SDKPart } from '@google/genai';
 import type { AppSettings, Part } from '../types';
-import { DEFAULT_IMAGE_MODEL, getGptImage2Size } from '../config/models';
+import { DEFAULT_IMAGE_MODEL, getEffectiveGptImage2Size } from '../config/models';
 
 type OpenAIImageSettings = AppSettings & {
   displayModelName?: string;
@@ -212,7 +212,12 @@ export const generateOpenAIImageContent = async (
 ) => {
   const client = createOpenAIClient(apiKey, settings.customEndpoint);
   const currentUserContent = constructUserContent(prompt, images);
-  const size = getGptImage2Size(settings.resolution, settings.aspectRatio);
+  const size = getEffectiveGptImage2Size(
+    settings.resolution,
+    settings.aspectRatio,
+    settings.gptImageCustomWidth,
+    settings.gptImageCustomHeight,
+  );
   const model = settings.modelName || DEFAULT_IMAGE_MODEL;
   const normalizedPrompt = prompt.trim() || 'Generate an image';
 

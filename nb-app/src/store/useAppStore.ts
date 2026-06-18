@@ -11,6 +11,8 @@ const DEFAULT_API_ENDPOINT = 'https://api.aigod.one';
 const normalizeSettings = (settings: AppSettings): AppSettings => ({
   ...settings,
   gptImageQuality: settings.gptImageQuality || 'auto',
+  gptImageCustomWidth: settings.gptImageCustomWidth,
+  gptImageCustomHeight: settings.gptImageCustomHeight,
   customEndpoint: DEFAULT_API_ENDPOINT,
 });
 
@@ -70,6 +72,8 @@ export const useAppStore = create<AppState>()(
         resolution: '1K',
         aspectRatio: 'Auto',
         gptImageQuality: 'auto',
+        gptImageCustomWidth: undefined,
+        gptImageCustomHeight: undefined,
         useGrounding: false,
         enableThinking: false,
         streamResponse: false,

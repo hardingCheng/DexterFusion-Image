@@ -190,3 +190,18 @@ export const getGptImage2Size = (
 
   return `${selected.width}x${selected.height}`;
 };
+
+export const getCustomGptImage2Size = (width?: number, height?: number): string | null => {
+  if (width === undefined || height === undefined) {
+    return null;
+  }
+
+  return isValidGptImage2Dimensions(width, height) ? `${width}x${height}` : null;
+};
+
+export const getEffectiveGptImage2Size = (
+  resolution: ResolutionOption,
+  aspectRatio: string,
+  customWidth?: number,
+  customHeight?: number,
+): string => getCustomGptImage2Size(customWidth, customHeight) || getGptImage2Size(resolution, aspectRatio);
