@@ -203,6 +203,22 @@ const parseImageResponse = async (
   return parts;
 };
 
+const isUnsupportedResponseFormatError = (error: unknown): boolean => {
+  const err = error as {
+    message?: string;
+    param?: string;
+    code?: string;
+    error?: { message?: string; param?: string; code?: string };
+  };
+  const message = `${err?.message || ''} ${err?.error?.message || ''}`.toLowerCase();
+  const param = err?.param || err?.error?.param;
+  const code = err?.code || err?.error?.code;
+
+  return param === 'response_format'
+    || code === 'unknown_parameter'
+    || (message.includes('unknown parameter') && message.includes('response_format'));
+};
+
 export const generateOpenAIImageContent = async (
   apiKey: string,
   prompt: string,
@@ -221,24 +237,38 @@ export const generateOpenAIImageContent = async (
   const model = settings.modelName || DEFAULT_IMAGE_MODEL;
   const normalizedPrompt = prompt.trim() || 'Generate an image';
 
-  const response = images.length > 0
-    ? await client.images.edit({
+  const requestImage = async (includeResponseFormat: boolean) => {
+    if (images.length > 0) {
+      return client.images.edit({
         model,
         image: images.map((image, index) => base64ToFile(image.base64Data, image.mimeType, index)),
         prompt: normalizedPrompt,
         size,
         quality: settings.gptImageQuality,
-        response_format: 'b64_json',
-        n: 1,
-      }, { signal })
-    : await client.images.generate({
-        model,
-        prompt: normalizedPrompt,
-        size,
-        quality: settings.gptImageQuality,
-        response_format: 'b64_json',
+        ...(includeResponseFormat ? { response_format: 'b64_json' as const } : {}),
         n: 1,
       }, { signal });
+    }
+
+    return client.images.generate({
+      model,
+      prompt: normalizedPrompt,
+      size,
+      quality: settings.gptImageQuality,
+      ...(includeResponseFormat ? { response_format: 'b64_json' as const } : {}),
+      n: 1,
+    }, { signal });
+  };
+
+  let response: Awaited<ReturnType<typeof requestImage>>;
+  try {
+    response = await requestImage(true);
+  } catch (error) {
+    if (!isUnsupportedResponseFormatError(error)) {
+      throw error;
+    }
+    response = await requestImage(false);
+  }
 
   return {
     userContent: currentUserContent,

@@ -13,7 +13,7 @@ const normalizeSettings = (settings: AppSettings): AppSettings => ({
   gptImageQuality: settings.gptImageQuality || 'auto',
   gptImageCustomWidth: settings.gptImageCustomWidth,
   gptImageCustomHeight: settings.gptImageCustomHeight,
-  customEndpoint: DEFAULT_API_ENDPOINT,
+  customEndpoint: settings.customEndpoint || DEFAULT_API_ENDPOINT,
 });
 
 // Custom IndexedDB storage
@@ -122,7 +122,7 @@ export const useAppStore = create<AppState>()(
         return {
           displayModel,
           apiKey: modelCredential.apiKey || state.apiKey || '',
-          endpoint: DEFAULT_API_ENDPOINT,
+          endpoint: state.settings.customEndpoint || DEFAULT_API_ENDPOINT,
           upstreamModel: modelCredential.upstreamModel || displayModel,
         };
       },

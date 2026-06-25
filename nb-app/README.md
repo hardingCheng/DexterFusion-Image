@@ -168,16 +168,17 @@
 
 ### 2. URL 参数配置
 
-支持通过 URL 参数快速预设配置，方便分享或特定场景使用：
+支持通过 URL 参数临时覆盖 API 端点，方便管理员在特定场景切换代理线路：
 
-- `apikey`: 预填 API Key
 - `endpoint`: 自定义 API 端点 (Base URL)
-- `model`: 自定义模型名称
+- `api`: `endpoint` 的简写别名
 
 **示例：**
 ```
-http://localhost:3000/?endpoint=https://my-proxy.com&model=gemini-2.0-flash
+http://localhost:3000/?endpoint=https://my-proxy.com
 ```
+
+URL 参数不会覆盖 API Key 或模型配置，这些仍需要在本地设置中配置。
 
 ### 3. 图片上传方式
 

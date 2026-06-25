@@ -16,7 +16,7 @@ const ImageHistoryPanel = lazyWithRetry(() => import('./components/ImageHistoryP
 const PromptLibraryPanel = lazyWithRetry(() => import('./components/PromptLibraryPanel').then(module => ({ default: module.PromptLibraryPanel })));
 
 const App: React.FC = () => {
-  const { setApiKey, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, resolveModelCredential } = useAppStore();
+  const { settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, resolveModelCredential } = useAppStore();
   const { togglePromptLibrary, isPromptLibraryOpen, showApiKeyModal, setShowApiKeyModal } = useUiStore();
   const hasCurrentModelKey = Boolean(resolveModelCredential(settings.modelName).apiKey);
 
@@ -47,17 +47,12 @@ const App: React.FC = () => {
     setMounted(true);
 
     const params = new URLSearchParams(window.location.search);
-    const urlApiKey = params.get('apikey');
-    const urlModel = params.get('model');
+    const urlEndpoint = params.get('endpoint') || params.get('api');
 
-    if (urlModel) {
+    if (urlEndpoint) {
       updateSettings({
-        modelName: urlModel,
+        customEndpoint: urlEndpoint,
       });
-    }
-
-    if (urlApiKey) {
-      setApiKey(urlApiKey);
     }
   }, []);
 
