@@ -35,9 +35,14 @@ const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
     );
   }
 
-  if (part.inlineData) {
+  if (part.inlineData || part.imageUrl) {
+    const imageSrc = part.inlineData
+      ? `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`
+      : part.imageUrl!.url;
+    const canReEdit = !!part.inlineData;
     const handleReEdit = (e: React.MouseEvent) => {
       e.stopPropagation();
+      if (!part.inlineData) return;
       setPendingReferenceImage({
         base64Data: part.inlineData!.data,
         mimeType: part.inlineData!.mimeType,
@@ -52,27 +57,33 @@ const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
         onMouseLeave={() => setIsImageHovered(false)}
       >
         <img
-          src={`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`}
+          src={imageSrc}
           alt="Thinking process sketch"
           className="h-auto max-w-full object-contain opacity-80 hover:opacity-100 transition cursor-pointer"
           loading="lazy"
-          onClick={() => openImageInNewTab(part.inlineData!.mimeType, part.inlineData!.data)}
+          onClick={() => part.inlineData ? openImageInNewTab(part.inlineData.mimeType, part.inlineData.data) : window.open(part.imageUrl!.url, '_blank')}
           title="点击查看大图"
         />
 
         {/* Action Buttons */}
         <div className={`absolute top-2 right-2 flex gap-2 transition-all ${isImageHovered ? 'opacity-100' : 'opacity-0'}`}>
-          <button
-            onClick={handleReEdit}
-            className="p-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white shadow-lg backdrop-blur-sm transition-all"
-            title="再次编辑"
-          >
-            <Edit className="h-4 w-4" />
-          </button>
+          {canReEdit && (
+            <button
+              onClick={handleReEdit}
+              className="p-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white shadow-lg backdrop-blur-sm transition-all"
+              title="再次编辑"
+            >
+              <Edit className="h-4 w-4" />
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();
-              downloadImage(part.inlineData!.mimeType, part.inlineData!.data);
+              if (part.inlineData) {
+                downloadImage(part.inlineData.mimeType, part.inlineData.data);
+              } else {
+                window.open(part.imageUrl!.url, '_blank');
+              }
             }}
             className="p-2 rounded-lg bg-black/60 hover:bg-black/80 text-white shadow-lg backdrop-blur-sm transition-all"
             title="下载图片"
@@ -91,10 +102,15 @@ const ImageWithDownload: React.FC<{ part: Part; index: number }> = ({ part, inde
   const [isImageHovered, setIsImageHovered] = useState(false);
   const { setPendingReferenceImage } = useUiStore();
 
-  if (!part.inlineData) return null;
+  if (!part.inlineData && !part.imageUrl) return null;
+  const imageSrc = part.inlineData
+    ? `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`
+    : part.imageUrl!.url;
+  const canReEdit = !!part.inlineData;
 
   const handleReEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!part.inlineData) return;
     setPendingReferenceImage({
       base64Data: part.inlineData!.data,
       mimeType: part.inlineData!.mimeType,
@@ -110,27 +126,33 @@ const ImageWithDownload: React.FC<{ part: Part; index: number }> = ({ part, inde
       onMouseLeave={() => setIsImageHovered(false)}
     >
       <img
-        src={`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`}
+        src={imageSrc}
         alt="Generated or uploaded content"
         className="h-auto max-w-full object-contain cursor-pointer"
         loading="lazy"
-        onClick={() => openImageInNewTab(part.inlineData!.mimeType, part.inlineData!.data)}
+        onClick={() => part.inlineData ? openImageInNewTab(part.inlineData.mimeType, part.inlineData.data) : window.open(part.imageUrl!.url, '_blank')}
         title="点击查看大图"
       />
 
       {/* Action Buttons */}
       <div className={`absolute top-3 right-3 flex gap-2 transition-all ${isImageHovered ? 'opacity-100' : 'opacity-0'}`}>
-        <button
-          onClick={handleReEdit}
-          className="p-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white shadow-lg backdrop-blur-sm transition-all"
-          title="再次编辑"
-        >
-          <Edit className="h-5 w-5" />
-        </button>
+        {canReEdit && (
+          <button
+            onClick={handleReEdit}
+            className="p-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white shadow-lg backdrop-blur-sm transition-all"
+            title="再次编辑"
+          >
+            <Edit className="h-5 w-5" />
+          </button>
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation();
-            downloadImage(part.inlineData!.mimeType, part.inlineData!.data);
+            if (part.inlineData) {
+              downloadImage(part.inlineData.mimeType, part.inlineData.data);
+            } else {
+              window.open(part.imageUrl!.url, '_blank');
+            }
           }}
           className="p-2.5 rounded-lg bg-black/60 hover:bg-black/80 text-white shadow-lg backdrop-blur-sm transition-all"
           title="下载图片"
@@ -291,7 +313,7 @@ export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, 
     }
     
     // 3. Handle Images
-    if (part.inlineData) {
+    if (part.inlineData || part.imageUrl) {
       return <ImageWithDownload key={index} part={part} index={index} />;
     }
     return null;

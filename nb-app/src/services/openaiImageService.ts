@@ -69,18 +69,28 @@ const blobToBase64 = (blob: Blob) => new Promise<string>((resolve, reject) => {
 });
 
 const imageUrlToPart = async (url: string, signal?: AbortSignal): Promise<Part> => {
-  const response = await fetch(url, { signal });
-  if (!response.ok) {
-    throw new Error(`图片下载失败 (${response.status})`);
-  }
+  try {
+    const response = await fetch(url, { signal });
+    if (!response.ok) {
+      throw new Error(`图片下载失败 (${response.status})`);
+    }
 
-  const blob = await response.blob();
-  return {
-    inlineData: {
-      mimeType: blob.type || 'image/png',
-      data: await blobToBase64(blob),
-    },
-  };
+    const blob = await response.blob();
+    return {
+      inlineData: {
+        mimeType: blob.type || 'image/png',
+        data: await blobToBase64(blob),
+      },
+    };
+  } catch (error) {
+    console.warn('图片 URL 无法转为 base64，将直接使用远程 URL 展示:', error);
+    return {
+      imageUrl: {
+        url,
+        mimeType: 'image/png',
+      },
+    };
+  }
 };
 
 const parseMaybeJson = (value: unknown): unknown => {
